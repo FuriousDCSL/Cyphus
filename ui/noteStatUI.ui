@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>noteStats</class>
+ <widget class="QWidget" name="noteStats">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -45,7 +45,7 @@
      <item row="5" column="0">
       <widget class="QLabel" name="cutDirLabel">
        <property name="text">
-        <string>CutDirection</string>
+        <string>Cut Direction</string>
        </property>
       </widget>
      </item>
@@ -61,7 +61,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>upRight.png</normaloff>upRight.png</iconset>
+           <normaloff>../graphics/upRight.png</normaloff>../graphics/upRight.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -81,7 +81,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>downRight.png</normaloff>downRight.png</iconset>
+           <normaloff>../graphics/downRight.png</normaloff>../graphics/downRight.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -101,7 +101,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>right.png</normaloff>right.png</iconset>
+           <normaloff>../graphics/right.png</normaloff>../graphics/right.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -121,7 +121,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>down.png</normaloff>down.png</iconset>
+           <normaloff>../graphics/down.png</normaloff>../graphics/down.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -141,7 +141,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>circle.png</normaloff>circle.png</iconset>
+           <normaloff>../graphics/circle.png</normaloff>../graphics/circle.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -161,7 +161,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>upLeft.png</normaloff>upLeft.png</iconset>
+           <normaloff>../graphics/upLeft.png</normaloff>../graphics/upLeft.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -181,7 +181,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>left.png</normaloff>left.png</iconset>
+           <normaloff>../graphics/left.png</normaloff>../graphics/left.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -204,7 +204,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>up.png</normaloff>up.png</iconset>
+           <normaloff>../graphics/up.png</normaloff>../graphics/up.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -224,7 +224,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>downLeft.png</normaloff>downLeft.png</iconset>
+           <normaloff>../graphics/downLeft.png</normaloff>../graphics/downLeft.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -268,7 +268,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>mine.png</normaloff>mine.png</iconset>
+           <normaloff>../graphics/mine.png</normaloff>../graphics/mine.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -288,7 +288,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>red.png</normaloff>red.png</iconset>
+           <normaloff>../graphics/red.png</normaloff>../graphics/red.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -308,7 +308,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>blue.png</normaloff>blue.png</iconset>
+           <normaloff>../graphics/blue.png</normaloff>../graphics/blue.png</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -323,7 +323,7 @@
      <item row="4" column="0">
       <widget class="QLabel" name="noteTypeLabel">
        <property name="text">
-        <string>NoteType</string>
+        <string>Note Type</string>
        </property>
       </widget>
      </item>
