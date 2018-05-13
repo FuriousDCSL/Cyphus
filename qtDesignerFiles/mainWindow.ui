@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>948</width>
-    <height>1069</height>
+    <width>984</width>
+    <height>576</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -57,7 +57,14 @@
          </widget>
         </item>
         <item row="0" column="1">
-         <widget class="QDoubleSpinBox" name="beatIn_3"/>
+         <widget class="QDoubleSpinBox" name="beatIn_3">
+          <property name="decimals">
+           <number>4</number>
+          </property>
+          <property name="maximum">
+           <double>2000000000.000000000000000</double>
+          </property>
+         </widget>
         </item>
         <item row="1" column="0">
          <widget class="QLabel" name="timeLabel_3">
@@ -67,7 +74,11 @@
          </widget>
         </item>
         <item row="1" column="1">
-         <widget class="QDoubleSpinBox" name="timeIn_3"/>
+         <widget class="QDoubleSpinBox" name="timeIn_3">
+          <property name="maximum">
+           <double>2000000000.000000000000000</double>
+          </property>
+         </widget>
         </item>
         <item row="2" column="0">
          <widget class="QLabel" name="noteIndexLabel_3">
@@ -77,7 +88,11 @@
          </widget>
         </item>
         <item row="2" column="1">
-         <widget class="QSpinBox" name="indexIn_3"/>
+         <widget class="QSpinBox" name="indexIn_3">
+          <property name="maximum">
+           <number>3</number>
+          </property>
+         </widget>
         </item>
         <item row="3" column="0">
          <widget class="QLabel" name="noteLayerLabel_3">
@@ -87,7 +102,11 @@
          </widget>
         </item>
         <item row="3" column="1">
-         <widget class="QSpinBox" name="layerIn_3"/>
+         <widget class="QSpinBox" name="layerIn_3">
+          <property name="maximum">
+           <number>2</number>
+          </property>
+         </widget>
         </item>
         <item row="4" column="0">
          <widget class="QLabel" name="noteTypeLabel_3">
@@ -389,7 +408,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>948</width>
+     <width>984</width>
      <height>21</height>
     </rect>
    </property>
