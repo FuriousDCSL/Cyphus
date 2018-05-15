@@ -20,6 +20,8 @@ spectra display
 
 add events and barriers
 
+Cut and save Section of song for playing excerpt in game
+
 info.json editing
 
 cut and paste support
