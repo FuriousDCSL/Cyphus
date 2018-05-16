@@ -1,8 +1,25 @@
+ # Cyphus: An editor for Beat Saber song charts
+ #    Copyright (C) 2018  Joseph Broderick
+ #
+ #    This program is free software: you can redistribute it and/or modify
+ #    it under the terms of the GNU General Public License as published by
+ #    the Free Software Foundation, either version 3 of the License, or
+ #    (at your option) any later version.
+ #
+ #    This program is distributed in the hope that it will be useful,
+ #    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ #    GNU General Public License for more details.
+ #
+ #    You should have received a copy of the GNU General Public License
+ #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ #
+
 import sys
 from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
     QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel, \
     QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSplitter, QGraphicsView, \
-    QButtonGroup, QGridLayout, QAction
+    QButtonGroup, QGridLayout, QAction, QSizePolicy
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import QSize
 
@@ -44,7 +61,7 @@ class SongInfoPanel(QWidget):
         self.songCharterIn = QLineEdit()
         formLayout.addRow(QLabel('Chart Creator'),self.songCharterIn)
         self.audioOffsetIn = QDoubleSpinBox()
-        formLayout.addRow(QLabel('Audio Offset'),self.audioOffsetIn)
+        formLayout.addRow(QLabel('Audio Offset (s)'),self.audioOffsetIn)
         self.BPMIn = QDoubleSpinBox()
         formLayout.addRow(QLabel('Display BPM'),self.BPMIn)
         self.previewStartIn = QDoubleSpinBox()
@@ -52,6 +69,11 @@ class SongInfoPanel(QWidget):
         self.previewLengthIn = QDoubleSpinBox()
         formLayout.addRow(QLabel('Preview Length'),self.previewLengthIn)
         self.enviromentIn = QComboBox()
+        self.enviromentIn.addItem('DefaultEnvironment')
+        self.enviromentIn.addItem('NiceEnviroment')
+        self.enviromentIn.addItem('BigMirrorEnviroment')
+        self.enviromentIn.addItem('TriangleEnviroment')
+        self.enviromentIn.addItem('TutorialEnviroment')
         formLayout.addRow(QLabel('Enviroment'),self.enviromentIn)
         self.audioFileIn = FileTextDialog()
         formLayout.addRow(QLabel('Audio File'),self.audioFileIn)
@@ -86,6 +108,7 @@ class NoteDirSelectPanel(QWidget): # need to change h size policy to not stretch
 
     def initUI(self):
         layout = QGridLayout()
+        layout.setSpacing(0)
         self.setLayout(layout)
 
         noteDirNames = [    'downRight', 'down',     'downLeft',
@@ -126,6 +149,7 @@ class NoteTypeSelectPanel(QWidget): # need to change h size policy to not stretc
     def initUI(self):
         layout = QHBoxLayout()
         self.setLayout(layout)
+        layout.setSpacing(0)
 
         noteDirNames = [    'mine', 'red','blue']
         self.btnSize = QSize(40,40)
@@ -162,8 +186,8 @@ class NoteInfoPanel(QWidget):
     def initUI(self):
         topLayout = QVBoxLayout()
         self.setLayout(topLayout)
-        noteInfoLayout = QFormLayout()
 
+        noteInfoLayout = QFormLayout()
         self.beatIn = QDoubleSpinBox()
         self.beatIn.setRange(0,10000)
         noteInfoLayout.addRow(QLabel('Beat'),self.beatIn)
@@ -198,10 +222,17 @@ class LevelInfoPanel(QWidget):
         self.setLayout(topLayout)
         formLayout = QFormLayout()
         self.levelSelectIn = QComboBox()
+        self.levelSelectIn.addItem('Easy')
+        self.levelSelectIn.addItem('Normal')
+        self.levelSelectIn.addItem('Hard')
+        self.levelSelectIn.addItem('Expert')
+        self.levelSelectIn.addItem('Expert Plus')
         formLayout.addRow(QLabel('Level Select'),self.levelSelectIn)
         formLayout.addRow(QLabel(''))
         self.baseBPMIn = QDoubleSpinBox()
         formLayout.addRow(QLabel('Base BPM'),self.baseBPMIn)
+        self.audioOffsetIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Audio Offset (s)'),self.audioOffsetIn)
         self.beatsPerBarIn = QDoubleSpinBox()
         formLayout.addRow(QLabel('Beats per Bar'),self.beatsPerBarIn)
         self.noteJumpSpeedIn = QDoubleSpinBox()
@@ -230,11 +261,12 @@ class Editor(QWidget):
 
     def initUI(self):
         self.topLayout=QVBoxLayout()
+        self.topLayout.setContentsMargins(0,0,0,0)
+
         self.setLayout(self.topLayout)
         self.gv = QGraphicsView()
-        self.mainPanel = QPushButton('Editor Stuff goes Here')
+#        self.gv.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.topLayout.addWidget(self.gv)
-        self.topLayout.addWidget(self.mainPanel)
 
 class EditorPanel(QWidget):
     def __init__(self):
@@ -245,14 +277,22 @@ class EditorPanel(QWidget):
     def initUI(self):
 
         self.topLayout = QHBoxLayout()
+        self.topLayout.setContentsMargins(0,0,0,0)
         self.setLayout(self.topLayout)
         self.mainPanel = QSplitter()
         self.levelInfo = LevelInfoPanel()
+#        self.levelInfo.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Fixed)
         self.editor = Editor()
         self.noteInfo = NoteInfoPanel()
+
+
         self.mainPanel.addWidget(self.levelInfo)
         self.mainPanel.addWidget(self.editor)
         self.mainPanel.addWidget(self.noteInfo)
+
+        self.mainPanel.setStretchFactor(0,1)
+        self.mainPanel.setStretchFactor(1,100)
+        self.mainPanel.setStretchFactor(2,1)
         self.topLayout.addWidget(self.mainPanel)
 
 class CyphusMainWindow(QMainWindow):
@@ -307,7 +347,7 @@ class CyphusMainWindow(QMainWindow):
         undoAct = QAction('&Undo', self)
         undoAct.setShortcut('Ctrl+Z')
         redoAct = QAction('&Redo', self)
-        redoAct.setShortcut('Ctrl+Shit+Z')
+        redoAct.setShortcut('Ctrl+Y')
         cutAct = QAction('Cu&t', self)
         cutAct.setShortcut('Ctrl+X')
         copyAct = QAction('&Copy', self)
