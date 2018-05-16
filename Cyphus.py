@@ -1,11 +1,84 @@
 import sys
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
+from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
+    QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel, \
+    QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSplitter, QGraphicsView, \
+    QButtonGroup, QGridLayout, QAction
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtCore import QSize
 
 graphics_dir = "graphics/"
 
-class NoteDirSelectPanel(QWidget):
+class FileTextDialog(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        topLayout=QHBoxLayout()
+        topLayout.setContentsMargins(0,0,0,0)
+        self.textIn = QLineEdit()
+        self.fileDialogIn = QPushButton('...')
+        self.fileDialogIn.setMaximumWidth(20)  #DEBUG need to change this to  dynamic instead of static at some point
+        topLayout.addWidget(self.textIn,3)
+        topLayout.addWidget(self.fileDialogIn,1)
+        self.setLayout(topLayout)
+
+
+class SongInfoPanel(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        topLayout=QVBoxLayout()
+        self.setLayout(topLayout)
+        formLayout = QFormLayout()
+        self.songNameIn = QLineEdit()
+        formLayout.addRow(QLabel('Song Name'),self.songNameIn)
+        self.songSubtitleIn = QLineEdit()
+        formLayout.addRow(QLabel('Song Subtitle'),self.songSubtitleIn)
+        self.songArtistIn = QLineEdit()
+        formLayout.addRow(QLabel('Song Artist'),self.songArtistIn)
+        self.songCharterIn = QLineEdit()
+        formLayout.addRow(QLabel('Chart Creator'),self.songCharterIn)
+        self.audioOffsetIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Audio Offset'),self.audioOffsetIn)
+        self.BPMIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Display BPM'),self.BPMIn)
+        self.previewStartIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Preview Start'),self.previewStartIn)
+        self.previewLengthIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Preview Length'),self.previewLengthIn)
+        self.enviromentIn = QComboBox()
+        formLayout.addRow(QLabel('Enviroment'),self.enviromentIn)
+        self.audioFileIn = FileTextDialog()
+        formLayout.addRow(QLabel('Audio File'),self.audioFileIn)
+        self.coverImageIn = FileTextDialog()
+        formLayout.addRow(QLabel('Cover Image'),self.coverImageIn)
+        self.easyLevelIn = FileTextDialog()
+        formLayout.addRow(QLabel('Easy'),self.easyLevelIn)
+        self.normalLevelIn = FileTextDialog()
+        formLayout.addRow(QLabel('Normal'),self.normalLevelIn)
+        self.hardLevelIn = FileTextDialog()
+        formLayout.addRow(QLabel('Hard'),self.hardLevelIn)
+        self.expertLevelIn = FileTextDialog()
+        formLayout.addRow(QLabel('Expert'),self.expertLevelIn)
+        self.expertPlusLevelIn = FileTextDialog()
+        formLayout.addRow(QLabel('Expert Plus'),self.expertPlusLevelIn)
+
+        confirmButtonLayout = QHBoxLayout()
+        self.applyBtn = QPushButton('Apply')
+        self.revertBtn = QPushButton('Revert')
+        confirmButtonLayout.addWidget(self.applyBtn)
+        confirmButtonLayout.addWidget(self.revertBtn)
+
+        topLayout.addLayout(formLayout)
+        topLayout.addLayout(confirmButtonLayout)
+
+
+class NoteDirSelectPanel(QWidget): # need to change h size policy to not stretch
     def __init__(self):
         super().__init__()
 
@@ -19,7 +92,6 @@ class NoteDirSelectPanel(QWidget):
                             'Right',     'circle',   'left',
                             'upRight',   'up',       'upLeft']
         positions = [(i,j) for i in range(3) for j in range(3)]
-        print(positions)
         self.btnSize = QSize(40,40)
 
         self.buttons = {}
@@ -45,7 +117,7 @@ class NoteDirSelectPanel(QWidget):
         sender = self.sender()
         print(sender.accessibleName())
 
-class NoteTypeSelectPanel(QWidget):
+class NoteTypeSelectPanel(QWidget): # need to change h size policy to not stretch
     def __init__(self):
         super().__init__()
 
@@ -91,7 +163,7 @@ class NoteInfoPanel(QWidget):
         topLayout = QVBoxLayout()
         self.setLayout(topLayout)
         noteInfoLayout = QFormLayout()
-        confirmButtonLayout = QHBoxLayout()
+
         self.beatIn = QDoubleSpinBox()
         self.beatIn.setRange(0,10000)
         noteInfoLayout.addRow(QLabel('Beat'),self.beatIn)
@@ -106,6 +178,7 @@ class NoteInfoPanel(QWidget):
         self.cutDirIn = NoteDirSelectPanel()
         noteInfoLayout.addRow(QLabel('Cut Direction'), self.cutDirIn)
 
+        confirmButtonLayout = QHBoxLayout()
         self.applyBtn = QPushButton('Apply')
         self.revertBtn = QPushButton('Revert')
         confirmButtonLayout.addWidget(self.applyBtn)
@@ -113,6 +186,74 @@ class NoteInfoPanel(QWidget):
 
         topLayout.addLayout(noteInfoLayout)
         topLayout.addLayout(confirmButtonLayout)
+
+class LevelInfoPanel(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        topLayout=QVBoxLayout()
+        self.setLayout(topLayout)
+        formLayout = QFormLayout()
+        self.levelSelectIn = QComboBox()
+        formLayout.addRow(QLabel('Level Select'),self.levelSelectIn)
+        formLayout.addRow(QLabel(''))
+        self.baseBPMIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Base BPM'),self.baseBPMIn)
+        self.beatsPerBarIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Beats per Bar'),self.beatsPerBarIn)
+        self.noteJumpSpeedIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Note Jump Speed'),self.noteJumpSpeedIn)
+        self.shuffleIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Shuffle'),self.shuffleIn)
+        self.shufflePeriodIn = QDoubleSpinBox()
+        formLayout.addRow(QLabel('Shuffle Period'),self.shufflePeriodIn)
+        self.levelFilePathIn = FileTextDialog()
+        formLayout.addRow(QLabel('Level File'),self.levelFilePathIn)
+
+        confirmButtonLayout = QHBoxLayout()
+        self.applyBtn = QPushButton('Apply')
+        self.revertBtn = QPushButton('Revert')
+        confirmButtonLayout.addWidget(self.applyBtn)
+        confirmButtonLayout.addWidget(self.revertBtn)
+
+        topLayout.addLayout(formLayout)
+        topLayout.addLayout(confirmButtonLayout)
+
+class Editor(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        self.topLayout=QVBoxLayout()
+        self.setLayout(self.topLayout)
+        self.gv = QGraphicsView()
+        self.mainPanel = QPushButton('Editor Stuff goes Here')
+        self.topLayout.addWidget(self.gv)
+        self.topLayout.addWidget(self.mainPanel)
+
+class EditorPanel(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+
+        self.topLayout = QHBoxLayout()
+        self.setLayout(self.topLayout)
+        self.mainPanel = QSplitter()
+        self.levelInfo = LevelInfoPanel()
+        self.editor = Editor()
+        self.noteInfo = NoteInfoPanel()
+        self.mainPanel.addWidget(self.levelInfo)
+        self.mainPanel.addWidget(self.editor)
+        self.mainPanel.addWidget(self.noteInfo)
+        self.topLayout.addWidget(self.mainPanel)
 
 class CyphusMainWindow(QMainWindow):
     def __init__(self):
@@ -126,36 +267,93 @@ class CyphusMainWindow(QMainWindow):
         self.statusBar()
 
         QApplication.setStyle(QStyleFactory.create('Fusion'))
-        print(self.style().objectName())
         self.setWindowIcon(QIcon(graphics_dir+'cyphus.png'))
 
-        testPanel = QWidget()
-        topLayout = QHBoxLayout()
-        graphicsView = QGraphicsView()
-        noteTypeSel = NoteInfoPanel()
-        #topLayout.addWidget(testPanel)
-        topLayout.addWidget(graphicsView)
-        topLayout.addWidget(noteTypeSel)
-        testPanel.setLayout(topLayout)
+        self.mainPanel = QTabWidget()
 
+        self.songInfoTab = SongInfoPanel()
+        self.editorTab = EditorPanel()
+
+        self.mainPanel.addTab(self.songInfoTab, 'Song Info')
+        self.mainPanel.addTab(self.editorTab, 'Editor')
+        menuBar = self.menuBar()
+
+        fileMenu = menuBar.addMenu('&File')
+        newAct = QAction('&New',self)
+        newAct.setShortcut('Ctrl+N')
+        #newAct.triggered.connect(self.newSong)
+        openAct = QAction('&Open', self)
+        openAct.setShortcut('Ctrl+O')
+        saveAct = QAction('&Save',self)
+        saveAct.setShortcut('Ctrl+S')
+        saveAsAct= QAction('Save &As...',self)
+        saveAsAct.setShortcut('Ctrl+Shit+S')
+        settingsAct = QAction('Se&ttings',self)
         exitAct = QAction('&Exit', self)
         exitAct.setShortcut('Ctrl+Q')
         exitAct.setStatusTip('Exit application')
         exitAct.triggered.connect(self.quitApp)
-
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(newAct)
+        fileMenu.addAction(openAct)
+        fileMenu.addSeparator()
+        fileMenu.addAction(saveAct)
+        fileMenu.addAction(saveAsAct)
+        fileMenu.addSeparator()
+        fileMenu.addAction(settingsAct)
+        fileMenu.addSeparator()
         fileMenu.addAction(exitAct)
 
-        self.setCentralWidget(testPanel)
+        selectMenu = menuBar.addMenu('&Edit')
+        undoAct = QAction('&Undo', self)
+        undoAct.setShortcut('Ctrl+Z')
+        redoAct = QAction('&Redo', self)
+        redoAct.setShortcut('Ctrl+Shit+Z')
+        cutAct = QAction('Cu&t', self)
+        cutAct.setShortcut('Ctrl+X')
+        copyAct = QAction('&Copy', self)
+        copyAct.setShortcut('Ctrl+C')
+        pasteAct = QAction('&Paste', self)
+        pasteAct.setShortcut('Ctrl+V')
+        selectAllAct = QAction('Select &All', self)
+        selectAllAct.setShortcut('Ctrl+A')
+        selectNoneAct = QAction('Select &None', self)
+        selectNoneAct.setShortcut('Ctrl+Shift+A')
+        selectMenu.addAction(undoAct)
+        selectMenu.addAction(redoAct)
+        selectMenu.addSeparator()
+        selectMenu.addAction(cutAct)
+        selectMenu.addAction(copyAct)
+        selectMenu.addAction(pasteAct)
+        selectMenu.addSeparator()
+        selectMenu.addAction(selectAllAct)
+        selectMenu.addAction(selectNoneAct)
+
+        helpMenu = menuBar.addMenu('&Help')
+        helpAct = QAction('&Help', self)
+        helpAct.setShortcut('F1')
+        helpAct.triggered.connect(self.helpDialog)
+        aboutAct = QAction('&About', self)
+        helpMenu.addAction(helpAct)
+        helpMenu.addSeparator()
+        helpMenu.addAction(aboutAct)
+
+
+        self.setCentralWidget(self.mainPanel)
         self.show()
 
     def quitApp(self):
         QApp.quit()
 
-if __name__ == "__main__":
+    def helpDialog(self):
+        print("HELP!")
+
+
+def main():
 
     app = QApplication(sys.argv)
 
     cyphus = CyphusMainWindow()
     sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()
