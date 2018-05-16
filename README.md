@@ -8,7 +8,7 @@ editor. Perhaps at some point a 3d visualizer will be added.
 
 Roadplan:
 
-Basic ui design (no editor section)
+Basic ui design (no editor section) (done)
 
 Import existing file chart and display some note information and info.json
 
@@ -28,6 +28,6 @@ cut and paste support
 
 undo support?
 
-update ui design (artwork?)
+update ui design (artwork?) Dark theme
 
 optimization if needed
