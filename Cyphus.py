@@ -309,7 +309,9 @@ class LevelInfoPanel(QWidget):
 class Editor(QWidget):
     def __init__(self):
         super().__init__()
-        self.spectrogramDisplay = True
+        self.spectrogramDisplay = False
+        self.notewidth=40;
+
         self.initUI()
 
     def initUI(self):
@@ -321,27 +323,65 @@ class Editor(QWidget):
         self.setLayout(self.topLayout)
         self.gs = QGraphicsScene()
         self.gv = QGraphicsView(self.gs)
-        self.gs.setBackgroundBrush(self.editorTheme['BGColor'])
-        self.bg = self.drawBG()
-        self.grid = self.drawGrid()
+        self.drawBG()
+        if self.spectrogramDisplay:
+            self.drawSpectrogram()
+        self.drawGrid()
+
+        self.topLayout.addWidget(self.gv)
+
+    def drawSpectrogram(self):
         self.bgImage = self.gs.addPixmap(QPixmap(graphics_dir+'spectrogram.png'))
         scaleBG = QTransform()
         scaleBG.scale(1,2)
         self.bgImage.setTransform(scaleBG)
-        self.topLayout.addWidget(self.gv)
+
 
     def drawBG(self):
+        self.gs.setBackgroundBrush(self.editorTheme['BG'])
+        self.bgrect = self.gs.addRect(0,0,1000,10000,QPen(Qt.black),self.editorTheme['BG'])
 
 
     def drawGrid(self):
-
+        for measure in range(int(10000/160)):
+            self.gs.addLine(1,measure*160,159,measure*160,self.editorTheme['GridMeasure'])
+            self.gs.addLine(1,measure*160+40,159,measure*160+40,self.editorTheme['Grid4'])
+            self.gs.addLine(1,measure*160+80,159,measure*160+80,self.editorTheme['Grid4'])
+            self.gs.addLine(1,measure*160+120,159,measure*160+120,self.editorTheme['Grid4'])
+            self.gs.addLine(1,measure*160+20,159,measure*160+20,self.editorTheme['Grid8'])
+            self.gs.addLine(1,measure*160+60,159,measure*160+60,self.editorTheme['Grid8'])
+            self.gs.addLine(1,measure*160+100,159,measure*160+100,self.editorTheme['Grid8'])
+            self.gs.addLine(1,measure*160+140,159,measure*160+140,self.editorTheme['Grid8'])
+        self.gs.addLine(0,0,0,10000,self.editorTheme['GridLayer1Vert'])
+        self.gs.addLine(40,0,40,10000,self.editorTheme['GridLayer1Vert'])
+        self.gs.addLine(80,0,80,10000,self.editorTheme['GridLayer1Vert'])
+        self.gs.addLine(120,0,120,10000,self.editorTheme['GridLayer1Vert'])
+        self.gs.addLine(160,0,160,10000,self.editorTheme['GridLayer1Vert'])
 
     def getTheme(self):
-        return {    'BGColor': QBrush(Qt.black,Qt.SolidPattern),
-                    'GridColor': QBrush(Qt.red,Qt.SolidPattern)
+        return {    'BG': QBrush(Qt.black,Qt.SolidPattern),
+                    'GridLayer1Vert': QPen(Qt.white,Qt.SolidLine),
+                    'GridLayer1BG': QBrush(Qt.black,Qt.SolidPattern),
+                    'GridLayer2Vert': QPen(Qt.white,Qt.SolidLine),
+                    'GridLayer2BG': QBrush(Qt.black,Qt.SolidPattern),
+                    'GridLayer3Vert': QPen(Qt.white,Qt.SolidLine),
+                    'GridLayer3BG': QBrush(Qt.black,Qt.SolidPattern),
+                    'GridObs': QPen(Qt.blue,Qt.SolidLine),
+                    'GridObsBG': QBrush(Qt.black,Qt.SolidPattern),
+                    'GridEventVert': QPen(Qt.red,Qt.SolidLine),
+                    'GridEventBG': QBrush(Qt.black,Qt.SolidPattern),
+                    'GridMeasure': QPen(Qt.red,Qt.SolidLine),
+                    'Grid4': QPen(QBrush(Qt.white),1,Qt.DashLine),
+                    'Grid8': QPen(QBrush(Qt.blue),1,Qt.DotLine),
+                    'Grid12': QPen(Qt.red,Qt.SolidLine),
+                    'Grid16': QPen(Qt.red,Qt.SolidLine),
+                    'Grid24': QPen(Qt.red,Qt.SolidLine),
+                    'Grid32': QPen(Qt.red,Qt.SolidLine),
+                    'Grid48': QPen(Qt.red,Qt.SolidLine),
+                    'Grid64': QPen(Qt.red,Qt.SolidLine),
+                    'Grid192': QPen(Qt.red,Qt.SolidLine),
 
-
-        }
+                    }
 
 class EditorPanel(QWidget):
     def __init__(self):
