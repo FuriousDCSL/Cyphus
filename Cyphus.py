@@ -16,12 +16,16 @@
  #
 
 import sys
+import json
+
+
 from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
     QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel, \
     QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSplitter, QGraphicsView, \
-    QButtonGroup, QGridLayout, QAction, QSizePolicy
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import QSize
+    QButtonGroup, QGridLayout, QAction, QSizePolicy, QFileDialog, QDialog, \
+    QGraphicsScene, QGraphicsView, QErrorMessage, QGraphicsScale
+from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform
+from PyQt5.QtCore import QSize,Qt, QRect
 
 graphics_dir = "graphics/"
 
@@ -36,10 +40,27 @@ class FileTextDialog(QWidget):
         topLayout.setContentsMargins(0,0,0,0)
         self.textIn = QLineEdit()
         self.fileDialogIn = QPushButton('...')
+        self.fileDialogIn.setFocusPolicy(Qt.ClickFocus)
+        self.fileDialogIn.clicked.connect(self.getFile)
         self.fileDialogIn.setMaximumWidth(20)  #DEBUG need to change this to  dynamic instead of static at some point
         topLayout.addWidget(self.textIn,3)
         topLayout.addWidget(self.fileDialogIn,1)
         self.setLayout(topLayout)
+
+    def getFile(self):
+        fileName, filter = QFileDialog.getOpenFileName(self,'Select Level File')
+        print(fileName)
+        self.textIn.setText(fileName)
+
+    def setText(self,text):
+        self.textIn.setText(text)
+
+def MyDoubleSpinBox(min=-100, max=10000, decimals=4):
+    doubleSpinbox = QDoubleSpinBox()
+    doubleSpinbox.setRange(min,max)
+    doubleSpinbox.setDecimals(decimals)
+
+    return doubleSpinbox
 
 
 class SongInfoPanel(QWidget):
@@ -49,6 +70,12 @@ class SongInfoPanel(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.environmentList= [   'DefaultEnvironment',
+                            'NiceEnvironment',
+                            'BigMirrorEnvironment',
+                            'TriangleEnvironment',
+                            'TutorialEnvironment']
+
         topLayout=QVBoxLayout()
         self.setLayout(topLayout)
         formLayout = QFormLayout()
@@ -60,21 +87,21 @@ class SongInfoPanel(QWidget):
         formLayout.addRow(QLabel('Song Artist'),self.songArtistIn)
         self.songCharterIn = QLineEdit()
         formLayout.addRow(QLabel('Chart Creator'),self.songCharterIn)
-        self.audioOffsetIn = QDoubleSpinBox()
+        self.audioOffsetIn = MyDoubleSpinBox()
+
+
         formLayout.addRow(QLabel('Audio Offset (s)'),self.audioOffsetIn)
-        self.BPMIn = QDoubleSpinBox()
+        self.BPMIn = MyDoubleSpinBox()
         formLayout.addRow(QLabel('Display BPM'),self.BPMIn)
-        self.previewStartIn = QDoubleSpinBox()
+        self.previewStartIn = MyDoubleSpinBox()
+
         formLayout.addRow(QLabel('Preview Start'),self.previewStartIn)
-        self.previewLengthIn = QDoubleSpinBox()
-        formLayout.addRow(QLabel('Preview Length'),self.previewLengthIn)
-        self.enviromentIn = QComboBox()
-        self.enviromentIn.addItem('DefaultEnvironment')
-        self.enviromentIn.addItem('NiceEnviroment')
-        self.enviromentIn.addItem('BigMirrorEnviroment')
-        self.enviromentIn.addItem('TriangleEnviroment')
-        self.enviromentIn.addItem('TutorialEnviroment')
-        formLayout.addRow(QLabel('Enviroment'),self.enviromentIn)
+        self.previewDurationIn = MyDoubleSpinBox()
+        formLayout.addRow(QLabel('Preview Duration'),self.previewDurationIn)
+        self.environmentIn = QComboBox()
+        for environment in self.environmentList:
+            self.environmentIn.addItem(environment)
+        formLayout.addRow(QLabel('environment'),self.environmentIn)
         self.audioFileIn = FileTextDialog()
         formLayout.addRow(QLabel('Audio File'),self.audioFileIn)
         self.coverImageIn = FileTextDialog()
@@ -99,6 +126,29 @@ class SongInfoPanel(QWidget):
         topLayout.addLayout(formLayout)
         topLayout.addLayout(confirmButtonLayout)
 
+    def update(self, song):
+        self.songNameIn.setText(song.songName)
+        self.songSubtitleIn.setText(song.songSubName)
+        self.songArtistIn.setText(song.authorName)
+        self.songCharterIn.setText(song.chartAuthor)
+        self.audioOffsetIn.setValue(song.audioOffset)
+        self.BPMIn.setValue(song.beatsPerMinute)
+        self.previewStartIn.setValue(song.previewStartTime)
+        self.previewDurationIn.setValue(song.previewDuration)
+        self.coverImageIn.setText(song.coverImagePath)
+        if song.multiAudio:
+            self.audioFileIn.setText('Multiple Audio Files Present')
+        else:
+            self.audioFileIn.setText(song.audioPath)
+        self.easyLevelIn.setText(song.jsonFile['Easy'])
+        self.normalLevelIn.setText(song.jsonFile['Normal'])
+        self.hardLevelIn.setText(song.jsonFile['Hard'])
+        self.expertLevelIn.setText(song.jsonFile['Expert'])
+        self.expertPlusLevelIn.setText(song.jsonFile['ExpertPlus'])
+        if song.environmentName in self.environmentList:
+            self.environmentIn.setCurrentIndex(self.environmentList.index(song.environmentName))
+        else:
+            self.environmentIn.setCurrentIndex(0)
 
 class NoteDirSelectPanel(QWidget): # need to change h size policy to not stretch
     def __init__(self):
@@ -188,10 +238,10 @@ class NoteInfoPanel(QWidget):
         self.setLayout(topLayout)
 
         noteInfoLayout = QFormLayout()
-        self.beatIn = QDoubleSpinBox()
+        self.beatIn = MyDoubleSpinBox()
         self.beatIn.setRange(0,10000)
         noteInfoLayout.addRow(QLabel('Beat'),self.beatIn)
-        self.timeIn = QDoubleSpinBox()
+        self.timeIn = MyDoubleSpinBox()
         noteInfoLayout.addRow(QLabel('Time (ms)'),self.timeIn)
         self.positionIn = QSpinBox()
         noteInfoLayout.addRow(QLabel('Position'),self.positionIn)
@@ -211,11 +261,14 @@ class NoteInfoPanel(QWidget):
         topLayout.addLayout(noteInfoLayout)
         topLayout.addLayout(confirmButtonLayout)
 
+
 class LevelInfoPanel(QWidget):
     def __init__(self):
         super().__init__()
 
         self.initUI()
+
+
 
     def initUI(self):
         topLayout=QVBoxLayout()
@@ -229,17 +282,17 @@ class LevelInfoPanel(QWidget):
         self.levelSelectIn.addItem('Expert Plus')
         formLayout.addRow(QLabel('Level Select'),self.levelSelectIn)
         formLayout.addRow(QLabel(''))
-        self.baseBPMIn = QDoubleSpinBox()
+        self.baseBPMIn = MyDoubleSpinBox()
         formLayout.addRow(QLabel('Base BPM'),self.baseBPMIn)
-        self.audioOffsetIn = QDoubleSpinBox()
+        self.audioOffsetIn = MyDoubleSpinBox()
         formLayout.addRow(QLabel('Audio Offset (s)'),self.audioOffsetIn)
-        self.beatsPerBarIn = QDoubleSpinBox()
+        self.beatsPerBarIn = MyDoubleSpinBox()
         formLayout.addRow(QLabel('Beats per Bar'),self.beatsPerBarIn)
-        self.noteJumpSpeedIn = QDoubleSpinBox()
+        self.noteJumpSpeedIn = MyDoubleSpinBox()
         formLayout.addRow(QLabel('Note Jump Speed'),self.noteJumpSpeedIn)
-        self.shuffleIn = QDoubleSpinBox()
+        self.shuffleIn = MyDoubleSpinBox()
         formLayout.addRow(QLabel('Shuffle'),self.shuffleIn)
-        self.shufflePeriodIn = QDoubleSpinBox()
+        self.shufflePeriodIn = MyDoubleSpinBox()
         formLayout.addRow(QLabel('Shuffle Period'),self.shufflePeriodIn)
         self.levelFilePathIn = FileTextDialog()
         formLayout.addRow(QLabel('Level File'),self.levelFilePathIn)
@@ -256,17 +309,39 @@ class LevelInfoPanel(QWidget):
 class Editor(QWidget):
     def __init__(self):
         super().__init__()
-
+        self.spectrogramDisplay = True
         self.initUI()
 
     def initUI(self):
+        self.editorTheme = self.getTheme()
         self.topLayout=QVBoxLayout()
         self.topLayout.setContentsMargins(0,0,0,0)
 
+
         self.setLayout(self.topLayout)
-        self.gv = QGraphicsView()
-#        self.gv.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+        self.gs = QGraphicsScene()
+        self.gv = QGraphicsView(self.gs)
+        self.gs.setBackgroundBrush(self.editorTheme['BGColor'])
+        self.bg = self.drawBG()
+        self.grid = self.drawGrid()
+        self.bgImage = self.gs.addPixmap(QPixmap(graphics_dir+'spectrogram.png'))
+        scaleBG = QTransform()
+        scaleBG.scale(1,2)
+        self.bgImage.setTransform(scaleBG)
         self.topLayout.addWidget(self.gv)
+
+    def drawBG(self):
+
+
+    def drawGrid(self):
+
+
+    def getTheme(self):
+        return {    'BGColor': QBrush(Qt.black,Qt.SolidPattern),
+                    'GridColor': QBrush(Qt.red,Qt.SolidPattern)
+
+
+        }
 
 class EditorPanel(QWidget):
     def __init__(self):
@@ -295,16 +370,178 @@ class EditorPanel(QWidget):
         self.mainPanel.setStretchFactor(2,1)
         self.topLayout.addWidget(self.mainPanel)
 
+class Song():
+    def __init__(self, infoFile):
+        self.saved = True
+        self.valid = False
+
+        self.loadInfoJson(infoFile)
+
+    def loadInfoJson(self, infoFile):
+        self.infoJson ={}
+        if infoFile != '':
+            print(infoFile)
+            try:
+                with open (infoFile,'r') as info:
+                    self.infoJson = json.load(info)
+            except (FileNotFoundError):
+                print('info.json not found')
+                fileError = QDialog()
+                fileErrorLayout = QVBoxLayout()
+                fileError.setLayout(fileErrorLayout)
+                fileErrorOKBtn = QPushButton('OK')
+                fileErrorOKBtn.clicked.connect(fileError.close)
+                fileErrorLayout.addWidget(QLabel('info.json not found.'))
+                fileErrorLayout.addWidget(fileErrorOKBtn)
+                fileError.exec_()
+                return
+            except (json.decoder.JSONDecodeError):
+                print('info.json invalid')
+                fileError = QDialog()
+                fileErrorLayout = QVBoxLayout()
+                fileError.setLayout(fileErrorLayout)
+                fileErrorOKBtn = QPushButton('OK')
+                fileErrorOKBtn.clicked.connect(fileError.close)
+                fileErrorLayout.addWidget(QLabel('info.json Invalid'))
+                fileErrorLayout.addWidget(fileErrorOKBtn)
+                fileError.exec_()
+                return
+        if 'songName' in self.infoJson:
+            self.songName = self.infoJson['songName']
+        else:
+            print('Warning: Song name missing')
+            self.songName = ''
+        if 'songSubName' in self.infoJson:
+            self.songSubName = self.infoJson['songSubName']
+        else:
+            print('Warning: Song  subname missing')
+            self.songSubName = ''
+        if 'authorName' in self.infoJson:
+            self.authorName = self.infoJson['authorName']
+        else:
+            print('Warning: Song authorName missing')
+            self.authorName = ''
+        if 'chartAuthor' in self.infoJson:
+            self.chartAuthor = self.infoJson['chartAuthor']
+        else:
+            print('Warning: Song chartAuthor missing')
+            self.chartAuthor = ''
+        if 'beatsPerMinute' in self.infoJson:
+            self.beatsPerMinute = self.infoJson['beatsPerMinute']
+        else:
+            print('Warning: Song beatsPerMinute missing')
+            self.beatsPerMinute = 0.0
+        if 'previewStartTime' in self.infoJson:
+            self.previewStartTime = self.infoJson['previewStartTime']
+        else:
+            print('Warning: Song previewStartTime missing')
+            self.previewStartTime = 0.0
+        if 'previewDuration' in self.infoJson:
+            self.previewDuration = self.infoJson['previewDuration']
+        else:
+            print('Warning: Song previewDuration missing')
+            self.previewDuration = 0.0
+        if 'coverImagePath' in self.infoJson:
+            self.coverImagePath = self.infoJson['coverImagePath']
+        else:
+            print('Warning: Song coverImagePath missing')
+            self.coverImagePath = ''
+        if 'environmentName' in self.infoJson:
+            self.environmentName = self.infoJson['environmentName']
+        else:
+            print('Warning: Song environmentName missing')
+            self.environmentName = 'DefaultEnvironment'
+        if 'offset' in self.infoJson:
+            self.audioOffset = self.infoJson['offset']
+        else:
+            print('Warning: Song Offset missing')
+            self.audioOffset = 0.0
+        self.jsonFile={}
+        self.audioFile={}
+        self.levelRank={}
+        self.levelExists={}
+        if 'difficultyLevels' in self.infoJson:
+            for difficulty in self.infoJson['difficultyLevels']:
+                self.jsonFile[difficulty['difficulty']]=difficulty['jsonPath']
+                self.audioFile[difficulty['difficulty']]=difficulty['audioPath']
+                self.levelRank[difficulty['difficulty']]=difficulty['difficultyRank']
+                self.levelExists[difficulty['difficulty']]=True
+
+        if 'Easy' not in self.jsonFile.keys():
+            self.jsonFile['Easy']=''
+            self.audioFile['Easy']=''
+            self.levelRank['Easy']=0
+            self.levelExists['Easy'] = False
+        if 'Normal' not in self.jsonFile.keys():
+            self.jsonFile['Normal']=''
+            self.audioFile['Normal']=''
+            self.levelRank['Normal']=0
+            self.levelExists['Normal'] = False
+        if 'Hard' not in self.jsonFile.keys():
+            self.jsonFile['Hard']=''
+            self.audioFile['Hard']=''
+            self.levelRank['Hard']=0
+            self.levelExists['Hard'] = False
+        if 'Expert' not in self.jsonFile.keys():
+            self.jsonFile['Expert']=''
+            self.audioFile['Expert']=''
+            self.levelRank['Expert']=0
+            self.levelExists['Expert'] = False
+        if 'ExpertPlus' not in self.jsonFile.keys():
+            self.jsonFile['ExpertPlus']=''
+            self.audioFile['ExpertPlus']=''
+            self.levelRank['ExpertPlus']=0
+            self.levelExists['ExpertPlus'] = False
+
+        uniqueAudioFiles = []
+        for difficulty, audioFile in self.audioFile.items():
+            if audioFile not in uniqueAudioFiles and audioFile!='':
+                uniqueAudioFiles.append(audioFile)
+        print(uniqueAudioFiles)
+        if len(uniqueAudioFiles) > 1:
+            self.multiAudio = True
+        elif len(uniqueAudioFiles)== 1:
+            self.multiAudio = False
+            self.audioPath = uniqueAudioFiles[0]
+        else:
+            self.multiAudio = False
+            self.audioPath = ''
+        self.valid=True
+
+    def saveInfoJson(self, path):
+        infoJson = {    'songName':self.songName,
+                        'songSubName':self.songSubName,
+                        'authorName':self.authorName,
+                        'beatsPerMinute':self.beatsPerMinute,
+                        'previewStartTime':self.previewStartTime,
+                        'previewDuration':self.previewDuration,
+                        'coverImagePath':self.coverImagePath,
+                        'environmentName':self.environmentName,
+                        'difficultyLevels':[]
+                    }
+        for level in self.levelExists:
+            if self.levelExists[level]:
+                infoJson['difficultyLevels'].append({   'difficulty':level,
+                                                        'difficultyRank':self.levelRank[level],
+                                                        'audioPath':self.audioFile[level],
+                                                        'jsonPath': self.jsonFile[level]
+                                                    })
+        print (json.dumps(infoJson))
+
 class CyphusMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
+        self.song = Song('')
+        self.song.saved = True
         self.initUI()
+
 
     def initUI(self):
         self.setWindowTitle("Cyphus")
 
         self.statusBar()
+
+        self.resize(1900,1000)
 
         QApplication.setStyle(QStyleFactory.create('Fusion'))
         self.setWindowIcon(QIcon(graphics_dir+'cyphus.png'))
@@ -314,8 +551,8 @@ class CyphusMainWindow(QMainWindow):
         self.songInfoTab = SongInfoPanel()
         self.editorTab = EditorPanel()
 
-        self.mainPanel.addTab(self.songInfoTab, 'Song Info')
-        self.mainPanel.addTab(self.editorTab, 'Editor')
+        self.mainPanel.addTab(self.songInfoTab, 'Song &Info')
+        self.mainPanel.addTab(self.editorTab, 'Edi&tor')
         menuBar = self.menuBar()
 
         fileMenu = menuBar.addMenu('&File')
@@ -324,9 +561,11 @@ class CyphusMainWindow(QMainWindow):
         #newAct.triggered.connect(self.newSong)
         openAct = QAction('&Open', self)
         openAct.setShortcut('Ctrl+O')
+        openAct.triggered.connect(self.openSong)
         saveAct = QAction('&Save',self)
         saveAct.setShortcut('Ctrl+S')
         saveAsAct= QAction('Save &As...',self)
+        saveAct.triggered.connect(self.saveSong)
         saveAsAct.setShortcut('Ctrl+Shit+S')
         settingsAct = QAction('Se&ttings',self)
         exitAct = QAction('&Exit', self)
@@ -387,6 +626,19 @@ class CyphusMainWindow(QMainWindow):
     def helpDialog(self):
         print("HELP!")
 
+    def openSong(self):
+        folderName = QFileDialog.getExistingDirectory(self,'Select Song Folder')
+        infoFile = folderName + '/info.json'
+        if self.song.saved:
+            self.songOpen = Song(infoFile)
+            if self.songOpen.valid == True:
+                self.song = self.songOpen
+                self.songInfoTab.update(self.song)
+            else:
+                print('INVALID SONG NOT LOADING')
+
+    def saveSong(self):
+        self.song.saveInfoJson('')
 
 def main():
 
