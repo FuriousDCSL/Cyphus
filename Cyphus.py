@@ -309,9 +309,9 @@ class LayerValue():
 class Editor(QWidget):
     songLenInBeats =100
     songBeatsPBar = 4
-    reverse = 1
+    reverse = -1
     songBPMs=[(0,120)]
-    pixPSec = 100
+    pixPSec = 200
     disp8 = True
     disp12 = False
     disp16 = False
@@ -348,10 +348,32 @@ class Editor(QWidget):
         self.drawArrowDemo()
 
     def drawArrowDemo(self):
+
+        boxRotation=[180,0,90,270,225,135,315,45]
+
         for beatBox in self.song.levelsJson['Expert']['_notes']:
-            box = self.gs.addPixmap(QPixmap(graphics_dir+'redaddow.png'))
-            boxy = self.beatToSec(beatBox['_time'])*self.pixPSec
-            boxx = 0
+            if beatBox['_type']==0:
+                if beatBox['_cutDirection']==8:
+                    notePixmap = QPixmap(graphics_dir+'redcircle.png')
+                else:
+                    notePixmap = QPixmap(graphics_dir+'redarrow.png')
+            elif beatBox['_type']==1:
+                if beatBox['_cutDirection']==8:
+                    notePixmap = QPixmap(graphics_dir+'bluecircle.png')
+                else:
+                    notePixmap = QPixmap(graphics_dir+'bluearrow.png')
+            else:
+                notePixmap =QPixmap(graphics_dir+'mine.png')
+
+            notePixmap = notePixmap.scaled(40,40)
+            box = self.gs.addPixmap(notePixmap)
+
+            box.setTransformOriginPoint(20,20)
+
+            box.setRotation(boxRotation[beatBox['_cutDirection']])
+            boxy = (self.beatToSec(beatBox['_time'])*self.pixPSec-20)*self.reverse
+
+            boxx = 40*beatBox['_lineIndex']+170*beatBox['_lineLayer']
             print(boxx,boxy)
             box.setPos(boxx,boxy)
 
