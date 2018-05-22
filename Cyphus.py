@@ -17,15 +17,16 @@
 
 import sys
 import json
-
+import math
+import os.path
 
 from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
     QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel, \
     QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSplitter, QGraphicsView, \
     QButtonGroup, QGridLayout, QAction, QSizePolicy, QFileDialog, QDialog, \
-    QGraphicsScene, QGraphicsView, QErrorMessage, QGraphicsScale
-from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform
-from PyQt5.QtCore import QSize,Qt, QRect
+    QGraphicsScene, QGraphicsView, QErrorMessage, QGraphicsScale, QGraphicsItem
+from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor
+from PyQt5.QtCore import QSize,Qt, QRect, pyqtSignal,pyqtSlot
 
 graphics_dir = "graphics/"
 
@@ -49,7 +50,7 @@ class FileTextDialog(QWidget):
 
     def getFile(self):
         fileName, filter = QFileDialog.getOpenFileName(self,'Select Level File')
-        print(fileName)
+        #print(fileName)
         self.textIn.setText(fileName)
 
     def setText(self,text):
@@ -181,14 +182,10 @@ class NoteDirSelectPanel(QWidget): # need to change h size policy to not stretch
             self.buttons[name].setCheckable(True)
             self.buttons[name].setIcon(btnIcon)
             self.buttons[name].setText("")
-            self.buttons[name].clicked.connect(self.btnClicked)
             self.buttonGroup.addButton(self.buttons[name])
             layout.addWidget(self.buttons[name], *position)
 
 
-    def btnClicked(self):
-        sender = self.sender()
-        print(sender.accessibleName())
 
 class NoteTypeSelectPanel(QWidget): # need to change h size policy to not stretch
     def __init__(self):
@@ -218,14 +215,10 @@ class NoteTypeSelectPanel(QWidget): # need to change h size policy to not stretc
             self.buttons[name].setCheckable(True)
             self.buttons[name].setIcon(btnIcon)
             self.buttons[name].setText("")
-            self.buttons[name].clicked.connect(self.btnClicked)
             self.buttonGroup.addButton(self.buttons[name])
             layout.addWidget(self.buttons[name])
 
 
-    def btnClicked(self):
-        sender = self.sender()
-        print(sender.accessibleName())
 
 class NoteInfoPanel(QWidget):
     def __init__(self):
@@ -306,16 +299,36 @@ class LevelInfoPanel(QWidget):
         topLayout.addLayout(formLayout)
         topLayout.addLayout(confirmButtonLayout)
 
+
+class LayerValue():
+    def __init__(self, x, y, width):
+        self.x = x
+        self.y = y
+        self.w = width
+
 class Editor(QWidget):
+    songLenInBeats =100
+    songBeatsPBar = 4
+    reverse = 1
+    songBPMs=[(0,120)]
+    pixPSec = 100
+    disp8 = True
+    disp12 = False
+    disp16 = False
+    disp24 = False
+    disp32 = False
+    disp48 = False
+    disp64 = False
+
     def __init__(self):
         super().__init__()
         self.spectrogramDisplay = False
-        self.notewidth=40;
 
         self.initUI()
 
     def initUI(self):
         self.editorTheme = self.getTheme()
+        self.boxw = self.editorTheme['BoxWidth']
         self.topLayout=QVBoxLayout()
         self.topLayout.setContentsMargins(0,0,0,0)
 
@@ -327,8 +340,20 @@ class Editor(QWidget):
         if self.spectrogramDisplay:
             self.drawSpectrogram()
         self.drawGrid()
-
+#        self.drawArrowDemo()
         self.topLayout.addWidget(self.gv)
+
+    def update(self,song):
+        self.song = song
+        self.drawArrowDemo()
+
+    def drawArrowDemo(self):
+        for beatBox in self.song.levelsJson['Expert']['_notes']:
+            box = self.gs.addPixmap(QPixmap(graphics_dir+'redaddow.png'))
+            boxy = self.beatToSec(beatBox['_time'])*self.pixPSec
+            boxx = 0
+            print(boxx,boxy)
+            box.setPos(boxx,boxy)
 
     def drawSpectrogram(self):
         self.bgImage = self.gs.addPixmap(QPixmap(graphics_dir+'spectrogram.png'))
@@ -339,28 +364,121 @@ class Editor(QWidget):
 
     def drawBG(self):
         self.gs.setBackgroundBrush(self.editorTheme['BG'])
-        self.bgrect = self.gs.addRect(0,0,1000,10000,QPen(Qt.black),self.editorTheme['BG'])
+        #self.bgrect = self.gs.addRect(0,0,1000,10000,QPen(Qt.black),self.editorTheme['BG'])
 
+    def secPerBeat(self, bpm):
+        return 60.0/bpm
+
+    def beatToSec(self, beat):
+        self.offset = 0
+        seconds = self.offset
+
+        bpmLength =[]
+        numBPMS = len(self.songBPMs)
+        if numBPMS >1:
+            for i in range(len(self.songBPMs)-1):
+                bpmLength.append(self.songBPMs[i+1][0]-self.songBPMs[i][0])
+            bpmLength.append(self.songLenInBeats-self.songBPMs[i+1][0])
+
+            for i in range (len(bpmLength)-1):
+                if beat >= self.songBPMs[i+1][0]:
+                    seconds += self.secPerBeat(self.songBPMs[i][1])*bpmLength[i]
+                elif beat >= self.songBPMs[i][0] and beat < self.songBPMs[i+1][0]:
+                    seconds += self.secPerBeat(self.songBPMs[i][1])*(beat - self.songBPMs[i][0])
+
+        if beat >= self.songBPMs[-1][0]:
+            seconds += self.secPerBeat(self.songBPMs[-1][1]) * (beat -self.songBPMs[-1][0])
+
+        return seconds
+
+
+    def secToBeat(self, sec):
+        pass
 
     def drawGrid(self):
-        for measure in range(int(10000/160)):
-            self.gs.addLine(1,measure*160,159,measure*160,self.editorTheme['GridMeasure'])
-            self.gs.addLine(1,measure*160+40,159,measure*160+40,self.editorTheme['Grid4'])
-            self.gs.addLine(1,measure*160+80,159,measure*160+80,self.editorTheme['Grid4'])
-            self.gs.addLine(1,measure*160+120,159,measure*160+120,self.editorTheme['Grid4'])
-            self.gs.addLine(1,measure*160+20,159,measure*160+20,self.editorTheme['Grid8'])
-            self.gs.addLine(1,measure*160+60,159,measure*160+60,self.editorTheme['Grid8'])
-            self.gs.addLine(1,measure*160+100,159,measure*160+100,self.editorTheme['Grid8'])
-            self.gs.addLine(1,measure*160+140,159,measure*160+140,self.editorTheme['Grid8'])
-        self.gs.addLine(0,0,0,10000,self.editorTheme['GridLayer1Vert'])
-        self.gs.addLine(40,0,40,10000,self.editorTheme['GridLayer1Vert'])
-        self.gs.addLine(80,0,80,10000,self.editorTheme['GridLayer1Vert'])
-        self.gs.addLine(120,0,120,10000,self.editorTheme['GridLayer1Vert'])
-        self.gs.addLine(160,0,160,10000,self.editorTheme['GridLayer1Vert'])
+        #DEBUG need to through a clear grid in here
+
+        self.drawGridConstantTime()
+
+    def drawGridConstantBeat(self):
+        pass
+    def drawGridConstantTime(self):
+
+        # DONT FORGET TO ADD REVERSE SCROLL
+
+#        self.disp192 = True
+        #print(self.beatToSec(self.songLenInBeats))
+        self.noteLayer1 = self.gs.createItemGroup([])
+        self.noteLayer2 = self.gs.createItemGroup([])
+        self.noteLayer3 = self.gs.createItemGroup([])
+        self.obstacleLayer = self.gs.createItemGroup([])
+        self.eventLayer = self.gs.createItemGroup([])
+        width = self.editorTheme['BoxWidth']*4
+        spacing = self.editorTheme['LaneSpacing']
+        self.noteLayer1Values = LayerValue(0,0,width)
+        self.noteLayer2Values = LayerValue((width+spacing),0,width)
+        self.noteLayer3Values = LayerValue((width+spacing)*2,0,width)
+        self.obstacleLayerValues = LayerValue((width+spacing)*3,0,width)
+        self.eventLayerValues = LayerValue((width+spacing)*4,0,width)
+
+        self.drawGridLaneConstantTime(self.noteLayer1,self.noteLayer1Values)
+        self.drawGridLaneConstantTime(self.noteLayer2,self.noteLayer2Values)
+        self.drawGridLaneConstantTime(self.noteLayer3,self.noteLayer3Values)
+        self.drawGridLaneConstantTime(self.obstacleLayer,self.obstacleLayerValues)
+        self.drawGridLaneConstantTime(self.eventLayer,self.eventLayerValues)
+
+    def drawGridLaneConstantTime(self, lane, values):
+        for beat in range(self.songLenInBeats):
+            #print(beat,self.reverse*self.beatToSec(beat),self.reverse*self.beatToSec(beat)*self.pixPSec)
+            if beat % self.songBeatsPBar == 0:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat)*self.pixPSec,self.editorTheme['GridMeasure']))
+            else:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat)*self.pixPSec,self.editorTheme['Grid4']))
+            if self.disp8:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.5)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.5)*self.pixPSec,self.editorTheme['Grid8']))
+            if self.disp16:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.25)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.25)*self.pixPSec,self.editorTheme['Grid16']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.75)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.75)*self.pixPSec,self.editorTheme['Grid16']))
+            if self.disp32:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.125)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.125)*self.pixPSec,self.editorTheme['Grid32']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.375)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.375)*self.pixPSec,self.editorTheme['Grid32']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.625)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.625)*self.pixPSec,self.editorTheme['Grid32']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.875)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.875)*self.pixPSec,self.editorTheme['Grid32']))
+            if self.disp64:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.0625)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.0625)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.1875)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.1875)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.3125)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.3125)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.4375)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.4375)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.5625)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.5625)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.6875)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.6875)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.8125)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.8125)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.9375)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.9375)*self.pixPSec,self.editorTheme['Grid64']))
+            if self.disp12:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+1/3)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+1/3)*self.pixPSec,self.editorTheme['Grid12']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+2/3)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+2/3)*self.pixPSec,self.editorTheme['Grid12']))
+            if self.disp24:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+1/6)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+1/6)*self.pixPSec,self.editorTheme['Grid24']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.5)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.5)*self.pixPSec,self.editorTheme['Grid24']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+5/6)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+5/6)*self.pixPSec,self.editorTheme['Grid24']))
+            if self.disp48:
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+1/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+1/12)*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.25)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.25)*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+5/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+5/12)*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+7/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+7/12)*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.75)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.75)*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+11/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+11/12)*self.pixPSec,self.editorTheme['Grid48']))
+        lane.addToGroup(self.gs.addLine(values.x,values.y,values.x,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.25,values.y,values.x+values.w*.25,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.5,values.y,values.x+values.w*.5,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.75,values.y,values.x+values.w*.75,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w,values.y,values.x+values.w,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+
 
     def getTheme(self):
-        return {    'BG': QBrush(Qt.black,Qt.SolidPattern),
-                    'GridLayer1Vert': QPen(Qt.white,Qt.SolidLine),
+        return {    'BoxWidth': 40,
+                    'LaneSpacing': 10,
+                    'BG': QBrush(QColor(0,0,0),Qt.SolidPattern),
+                    'GridLayer1Vert': QPen(QBrush(QColor(255,255,255)),1,Qt.SolidLine),
                     'GridLayer1BG': QBrush(Qt.black,Qt.SolidPattern),
                     'GridLayer2Vert': QPen(Qt.white,Qt.SolidLine),
                     'GridLayer2BG': QBrush(Qt.black,Qt.SolidPattern),
@@ -370,17 +488,17 @@ class Editor(QWidget):
                     'GridObsBG': QBrush(Qt.black,Qt.SolidPattern),
                     'GridEventVert': QPen(Qt.red,Qt.SolidLine),
                     'GridEventBG': QBrush(Qt.black,Qt.SolidPattern),
-                    'GridMeasure': QPen(Qt.red,Qt.SolidLine),
-                    'Grid4': QPen(QBrush(Qt.white),1,Qt.DashLine),
-                    'Grid8': QPen(QBrush(Qt.blue),1,Qt.DotLine),
-                    'Grid12': QPen(Qt.red,Qt.SolidLine),
-                    'Grid16': QPen(Qt.red,Qt.SolidLine),
-                    'Grid24': QPen(Qt.red,Qt.SolidLine),
-                    'Grid32': QPen(Qt.red,Qt.SolidLine),
-                    'Grid48': QPen(Qt.red,Qt.SolidLine),
-                    'Grid64': QPen(Qt.red,Qt.SolidLine),
-                    'Grid192': QPen(Qt.red,Qt.SolidLine),
-
+                    'GridMeasure': QPen(QBrush(QColor(255,0,0)),1,Qt.SolidLine),
+                    'Grid4': QPen(QBrush(QColor(255,255,255)),1,Qt.DashLine),
+                    'Grid8': QPen(QBrush(QColor(0,150,255)),1,Qt.DotLine),
+                    'Grid12': QPen(QBrush(QColor(100,255,50)),1,Qt.DotLine),
+                    'Grid16': QPen(QBrush(QColor(255,255,50)),1,Qt.DotLine),
+                    'Grid24': QPen(QBrush(QColor(150,100,255)),1,Qt.DotLine),
+                    'Grid32': QPen(QBrush(QColor(0,255,150)),1,Qt.DotLine),
+                    'Grid48': QPen(QBrush(QColor(255,100,150)),1,Qt.DotLine),
+                    'Grid64': QPen(QBrush(QColor(150,200,100)),1,Qt.DotLine),
+#                    'Grid192': QPen(Qt.red,Qt.SolidLine),
+                    'GridLineWidth': 1
                     }
 
 class EditorPanel(QWidget):
@@ -410,7 +528,15 @@ class EditorPanel(QWidget):
         self.mainPanel.setStretchFactor(2,1)
         self.topLayout.addWidget(self.mainPanel)
 
+    def update(self, song):
+        self.editor.update(song)
+
+class Level():
+    def __init__(self):
+        print('level')
+
 class Song():
+
     def __init__(self, infoFile):
         self.saved = True
         self.valid = False
@@ -419,6 +545,7 @@ class Song():
 
     def loadInfoJson(self, infoFile):
         self.infoJson ={}
+
         if infoFile != '':
             print(infoFile)
             try:
@@ -446,6 +573,8 @@ class Song():
                 fileErrorLayout.addWidget(fileErrorOKBtn)
                 fileError.exec_()
                 return
+        self.songPath = os.path.dirname(infoFile)
+        print (self.songPath)
         if 'songName' in self.infoJson:
             self.songName = self.infoJson['songName']
         else:
@@ -496,17 +625,26 @@ class Song():
         else:
             print('Warning: Song Offset missing')
             self.audioOffset = 0.0
+
+        self.loadedKeys = ['songName', 'songSubName', 'authorName','chartAuthor','beatsPerMinute','previewStartTime','previewDuration','coverImagePath','environmentName','offset','difficultyLevels']
+
+        self.extraKeys=[]
+        for key in self.infoJson:
+            if key not in self.loadedKeys:
+                self.extraKeys.append((key,self.infoJson[key]))
+        print ("extra keys",self.extraKeys)
         self.jsonFile={}
         self.audioFile={}
         self.levelRank={}
         self.levelExists={}
+        self.levelsJson={}
         if 'difficultyLevels' in self.infoJson:
             for difficulty in self.infoJson['difficultyLevels']:
                 self.jsonFile[difficulty['difficulty']]=difficulty['jsonPath']
+                self.levelsJson[difficulty['difficulty']] = self.loadLevelJson(self.songPath+'/'+difficulty['jsonPath'])
                 self.audioFile[difficulty['difficulty']]=difficulty['audioPath']
                 self.levelRank[difficulty['difficulty']]=difficulty['difficultyRank']
                 self.levelExists[difficulty['difficulty']]=True
-
         if 'Easy' not in self.jsonFile.keys():
             self.jsonFile['Easy']=''
             self.audioFile['Easy']=''
@@ -533,11 +671,14 @@ class Song():
             self.levelRank['ExpertPlus']=0
             self.levelExists['ExpertPlus'] = False
 
+        #print(self.levelsJson)
+
+        # DEBUG this needs to be fixed, this will probably break.
         uniqueAudioFiles = []
         for difficulty, audioFile in self.audioFile.items():
             if audioFile not in uniqueAudioFiles and audioFile!='':
                 uniqueAudioFiles.append(audioFile)
-        print(uniqueAudioFiles)
+        #print(uniqueAudioFiles)
         if len(uniqueAudioFiles) > 1:
             self.multiAudio = True
         elif len(uniqueAudioFiles)== 1:
@@ -547,6 +688,38 @@ class Song():
             self.multiAudio = False
             self.audioPath = ''
         self.valid=True
+
+
+    def loadLevelJson(self,path):
+        self.level = Level()
+        print(path)
+        try:
+            with open (path,'r') as level:
+                self.levelJson = json.load(level)
+        except (FileNotFoundError):
+            print('level json not found')
+            fileError = QDialog()
+            fileErrorLayout = QVBoxLayout()
+            fileError.setLayout(fileErrorLayout)
+            fileErrorOKBtn = QPushButton('OK')
+            fileErrorOKBtn.clicked.connect(fileError.close)
+            fileErrorLayout.addWidget(QLabel('level json not found.'))
+            fileErrorLayout.addWidget(fileErrorOKBtn)
+            fileError.exec_()
+            return
+        except (json.decoder.JSONDecodeError):
+            print('level json invalid')
+            fileError = QDialog()
+            fileErrorLayout = QVBoxLayout()
+            fileError.setLayout(fileErrorLayout)
+            fileErrorOKBtn = QPushButton('OK')
+            fileErrorOKBtn.clicked.connect(fileError.close)
+            fileErrorLayout.addWidget(QLabel('level json Invalid'))
+            fileErrorLayout.addWidget(fileErrorOKBtn)
+            fileError.exec_()
+            return
+
+        return self.levelJson
 
     def saveInfoJson(self, path):
         infoJson = {    'songName':self.songName,
@@ -569,6 +742,8 @@ class Song():
         print (json.dumps(infoJson))
 
 class CyphusMainWindow(QMainWindow):
+    songLoaded= pyqtSignal(object)
+
     def __init__(self):
         super().__init__()
         self.song = Song('')
@@ -593,6 +768,7 @@ class CyphusMainWindow(QMainWindow):
 
         self.mainPanel.addTab(self.songInfoTab, 'Song &Info')
         self.mainPanel.addTab(self.editorTab, 'Edi&tor')
+        self.mainPanel.setCurrentIndex(1)
         menuBar = self.menuBar()
 
         fileMenu = menuBar.addMenu('&File')
@@ -661,7 +837,7 @@ class CyphusMainWindow(QMainWindow):
         self.show()
 
     def quitApp(self):
-        QApp.quit()
+        QApplication.quit()
 
     def helpDialog(self):
         print("HELP!")
@@ -674,6 +850,7 @@ class CyphusMainWindow(QMainWindow):
             if self.songOpen.valid == True:
                 self.song = self.songOpen
                 self.songInfoTab.update(self.song)
+                self.editorTab.update(self.song)
             else:
                 print('INVALID SONG NOT LOADING')
 

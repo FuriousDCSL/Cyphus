@@ -10,3 +10,5 @@ dist/
 *.spec
 
 OldVerionsJunk/
+
+testitems/
