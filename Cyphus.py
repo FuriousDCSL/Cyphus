@@ -19,14 +19,22 @@ import sys
 import json
 import math
 import os.path
+from pygame import mixer as MX
+from pygame import sndarray as SA
+import time
+import numpy
+import numpy.fft as fft
+from scipy import signal
+import math
+from PIL import Image
 
 from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
     QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel, \
     QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSplitter, QGraphicsView, \
     QButtonGroup, QGridLayout, QAction, QSizePolicy, QFileDialog, QDialog, \
     QGraphicsScene, QGraphicsView, QErrorMessage, QGraphicsScale, QGraphicsItem
-from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor
-from PyQt5.QtCore import QSize,Qt, QRect, pyqtSignal,pyqtSlot
+from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor, QPainter
+from PyQt5.QtCore import QSize,Qt, QRect, QPointF, QTimer, pyqtSignal, pyqtSlot
 
 graphics_dir = "graphics/"
 
@@ -306,12 +314,24 @@ class LayerValue():
         self.y = y
         self.w = width
 
+# class MyGraphicsView(QGraphicsView):
+#     def __init__(self,gs):
+#         super().__init__(gs)
+#
+#     def drawForeground(self,painter,x1,y1,x2,y2):
+#         painter.drawLine(x1,y1,x2,y2)
+
+
+
+
+
 class Editor(QWidget):
     songLenInBeats =100
     songBeatsPBar = 4
-    reverse = -1
-    songBPMs=[(0,120)]
-    pixPSec = 200
+    reverse = 1
+#    songBPMs=[(0.000,80.000),(4.000,80.000),(36.000,100.000),(68.000,120.000),(100.000,140.010),(132.000,160.000),(164.000,180.000)]
+    songBPMs=[(0,128)]
+    pixPSec = 600
     disp8 = True
     disp12 = False
     disp16 = False
@@ -319,10 +339,10 @@ class Editor(QWidget):
     disp32 = False
     disp48 = False
     disp64 = False
-
+    spectrogramDisplay = True
+    spectrogramExist = True
     def __init__(self):
         super().__init__()
-        self.spectrogramDisplay = False
 
         self.initUI()
 
@@ -337,19 +357,97 @@ class Editor(QWidget):
         self.gs = QGraphicsScene()
         self.gv = QGraphicsView(self.gs)
         self.drawBG()
-        if self.spectrogramDisplay:
-            self.drawSpectrogram()
-        self.drawGrid()
 #        self.drawArrowDemo()
         self.topLayout.addWidget(self.gv)
 
     def update(self,song):
         self.song = song
-        self.drawArrowDemo()
+        self.mixer = MX
+        self.mixer.init(48000)
 
+        self.songSound = self.mixer.Sound(self.song.songPath+'/'+self.song.audioFile['Expert'])
+        self.songLenInSecs = self.songSound.get_length()
+        self.songLenInBeats = self.secToBeat(self.songLenInSecs)
+
+
+
+        if not self.spectrogramExist:
+            print ('getting samples')
+            samples = SA.array(self.songSound)
+            print('average stereo')
+            fade = []
+            for sample in samples:
+                #print(sample[0],sample[1])
+                fade.append((int(sample[0])+int(sample[1]))/2.0)
+            fade = numpy.asarray(fade)
+            print('fft')
+            f, t, Sxx = signal.spectrogram(fade,48000,nperseg=256,nfft=2048)
+
+            print('coloring')
+            data = []
+            colormax =255
+            map = []
+            j = colorscale =256
+            k=j/2
+            for i in range(colorscale):
+                red = colormax - (i/colorscale*colormax)
+                if i<k:
+                    green = (i/colorscale*colormax)
+                else:
+                    green = (j/colorscale*colormax)
+                blue = (i/colorscale*colormax)
+                j-=1
+                alpha = 100
+                map.append((int(blue),int(red),int(green),alpha))
+            j = 255
+            while j>0:
+                j-=15
+                map.append((0,0,j))
+            for s in Sxx:
+                for d in (s.tolist()):
+                    if d>4000:
+                        data.append(map[0])
+                    elif d == 0:
+                        data.append(map[-1])
+                    else:
+                        data.append(map[int((len(map)-(d/4000*len(map)))-1)])
+            print ('Creating Pixmap')
+            im = Image.new('RGBA',(len(t),len(f)))
+            im.putdata(data)
+            im.save(graphics_dir+'/spectrogram.png')
+        if self.spectrogramDisplay:
+            self.spectrogramPixMap = QPixmap(graphics_dir+'/spectrogram.png')
+            width = self.spectrogramPixMap.width()
+            height = self.spectrogramPixMap.height()
+
+            self.spectrogramPixMap = self.gs.addPixmap(self.spectrogramPixMap)
+            self.spectrogramPixMap.setRotation(90)
+            self.spectrogramPixMap.setTransform(QTransform().scale(-1,self.songLenInSecs*self.pixPSec/width))
+        self.drawGrid()
+        self.drawArrowDemo()
+        #self.gv.setSceneRect(0,0,1000,-10000)
+        self.gv.verticalScrollBar().setSliderPosition(100)
+        self.fullScene =self.gv.sceneRect()
+        self.gv.setSceneRect(self.fullScene)
+        self.timer= QTimer()
+        self.timer.timeout.connect(self.movescreen)
+        self.timer.start(1)
+        self.songMusic = self.mixer.music.load(self.song.songPath+'/'+self.song.audioFile['Expert'])
+        MX.music.play()
+        self.cursor = False
+    def movescreen(self):
+        #print('movescreen',self.playTime*self.pixPSec)
+        pos = MX.music.get_pos()
+        curpos=400
+        #print(pos
+        if self.cursor:
+            self.gs.removeItem(self.cursorLine)
+        self.gv.setSceneRect(0,(pos/1000*self.pixPSec)-curpos,1000,1000)
+        self.cursorLine = self.gs.addLine(0,(pos/1000*self.pixPSec),1000,(pos/1000*self.pixPSec),self.editorTheme['GridMeasure'])
+        self.cursor=True
     def drawArrowDemo(self):
 
-        boxRotation=[180,0,90,270,225,135,315,45]
+        boxRotation=[180,0,90,270,225,135,315,45,0]
 
         for beatBox in self.song.levelsJson['Expert']['_notes']:
             if beatBox['_type']==0:
@@ -369,24 +467,17 @@ class Editor(QWidget):
             box = self.gs.addPixmap(notePixmap)
 
             box.setTransformOriginPoint(20,20)
-
+            #print(beatBox['_cutDirection'])
             box.setRotation(boxRotation[beatBox['_cutDirection']])
-            boxy = (self.beatToSec(beatBox['_time'])*self.pixPSec-20)*self.reverse
+            boxy = (self.beatToSec(beatBox['_time'])*self.pixPSec-(self.reverse*20))*self.reverse
 
             boxx = 40*beatBox['_lineIndex']+170*beatBox['_lineLayer']
-            print(boxx,boxy)
+            #print(boxx,boxy)
             box.setPos(boxx,boxy)
-
-    def drawSpectrogram(self):
-        self.bgImage = self.gs.addPixmap(QPixmap(graphics_dir+'spectrogram.png'))
-        scaleBG = QTransform()
-        scaleBG.scale(1,2)
-        self.bgImage.setTransform(scaleBG)
 
 
     def drawBG(self):
         self.gs.setBackgroundBrush(self.editorTheme['BG'])
-        #self.bgrect = self.gs.addRect(0,0,1000,10000,QPen(Qt.black),self.editorTheme['BG'])
 
     def secPerBeat(self, bpm):
         return 60.0/bpm
@@ -415,7 +506,8 @@ class Editor(QWidget):
 
 
     def secToBeat(self, sec):
-        pass
+        #DEBUG temp stub
+        return sec*128/60
 
     def drawGrid(self):
         #DEBUG need to through a clear grid in here
@@ -450,7 +542,8 @@ class Editor(QWidget):
         self.drawGridLaneConstantTime(self.eventLayer,self.eventLayerValues)
 
     def drawGridLaneConstantTime(self, lane, values):
-        for beat in range(self.songLenInBeats):
+        #debug songlen not a int need to address leftover time
+        for beat in range(int(self.songLenInBeats)):
             #print(beat,self.reverse*self.beatToSec(beat),self.reverse*self.beatToSec(beat)*self.pixPSec)
             if beat % self.songBeatsPBar == 0:
                 lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat)*self.pixPSec,self.editorTheme['GridMeasure']))
