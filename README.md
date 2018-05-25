@@ -10,13 +10,13 @@ Roadplan:
 
 Basic ui design (no editor section) (done)
 
-Import existing file chart and display some note information and info.json
+Import existing file chart and display some note information and info.json(done)
 
-Basic editor display only (notes only to start)
+Basic editor display only (notes only to start)(done)
+
+spectra display(done)
 
 basic addition and subtraction and editing of notes
-
-spectra display
 
 add events and barriers
 
