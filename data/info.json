@@ -1,0 +1,13 @@
+{"songName":"120BPM Electro Test",
+  "songSubName":"",
+  "authorName":"",
+  "beatsPerMinute":120,
+  "previewStartTime":0,
+  "previewDuration":3,
+  "coverImagePath":"cyphus.png",
+  "environmentName":"NiceEnvironment",
+  "difficultyLevels":[
+    {"difficulty":"Expert",
+      "difficultyRank":0,
+      "audioPath":"120BPM_Electro_Test.ogg",
+      "jsonPath":"Expert.json"}]}

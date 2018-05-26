@@ -16,7 +16,12 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
     QButtonGroup, QGridLayout, QAction, QSizePolicy, QFileDialog, QDialog, \
     QGraphicsScene, QGraphicsView, QErrorMessage, QGraphicsScale, QGraphicsItem
 from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor, QPainter
-from PyQt5.QtCore import QSize,Qt, QRect, QPointF, QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QSize,Qt, QRect, QPointF, pyqtSignal, pyqtSlot
+
+import soundfile
+from PIL import Image
+from pygame import mixer as MX
+from pygame import sndarray as SA
 
 graphics_dir = "graphics/"
 
@@ -29,8 +34,133 @@ class Song():
     def __init__(self, infoFile):
         self.saved = True
         self.valid = False
-
+        self.spectrogramExist = True
+        self.isPlaying = False
+        self.BPMs=[(0,128)]
+        self.startTime =0
+        print('loading',infoFile)
         self.loadInfoJson(infoFile)
+        self.initSong()
+
+    def secToBeat(self, sec):
+        #DEBUG temp stub
+        return sec*128/60
+
+    def beatToSec(self, beat):
+        self.offset = 0
+        seconds = self.offset
+
+        bpmLength =[]
+        numBPMS = len(self.BPMs)
+        if numBPMS >1:
+            for i in range(len(self.BPMs)-1):
+                bpmLength.append(self.BPMs[i+1][0]-self.BPMs[i][0])
+            bpmLength.append(self.lengthInBeats-self.BPMs[i+1][0])
+
+            for i in range (len(bpmLength)-1):
+                if beat >= self.BPMs[i+1][0]:
+                    seconds += self.secPerBeat(self.BPMs[i][1])*bpmLength[i]
+                elif beat >= self.BPMs[i][0] and beat < self.BPMs[i+1][0]:
+                    seconds += self.secPerBeat(self.BPMs[i][1])*(beat - self.BPMs[i][0])
+
+        if beat >= self.BPMs[-1][0]:
+            seconds += self.secPerBeat(self.BPMs[-1][1]) * (beat -self.BPMs[-1][0])
+        return seconds
+
+    def initSong(self):
+        print(self.songPath+'/'+self.audioFile['Expert'])
+        self.data, self.samplerate = soundfile.read(self.songPath+'/'+self.audioFile['Expert'])
+        self.beatsPerBar =4
+        MX.quit()
+        self.mixer = MX
+
+        print('Sample rate: ',self.samplerate)
+
+        self.mixer.pre_init(self.samplerate, -16, 2, 2048)
+        self.mixer.init(self.samplerate)
+        self.sound = self.mixer.Sound(self.songPath+'/'+self.audioFile['Expert'])
+        self.lengthInSeconds = self.sound.get_length()
+        self.lengthInBeats= self.secToBeat(self.lengthInSeconds)
+        self.pos =0
+        self.music = self.mixer.music.load(self.songPath+'/'+self.audioFile['Expert'])
+
+
+        if not self.spectrogramExist:
+            print ('getting samples')
+            samples = SA.array(self.sound)
+            print('average stereo')
+            fade = []
+            for sample in samples:
+                #print(sample[0],sample[1])
+                fade.append((int(sample[0])+int(sample[1]))/2.0)
+            fade = numpy.asarray(fade)
+            print('fft')
+            f, t, Sxx = signal.spectrogram(fade,48000,nperseg=256,nfft=2048)
+
+            print('coloring')
+            data = []
+            colormax =255
+            map = []
+            j = colorscale =256
+            k=j/2
+            for i in range(colorscale):
+                red = colormax - (i/colorscale*colormax)
+                if i<k:
+                    green = (i/colorscale*colormax)
+                else:
+                    green = (j/colorscale*colormax)
+                blue = (i/colorscale*colormax)
+                j-=1
+                alpha = 100
+                map.append((int(blue),int(red),int(green),alpha))
+            j = 255
+            while j>0:
+                j-=15
+                map.append((0,0,j))
+            for s in Sxx:
+                for d in (s.tolist()):
+                    if d>4000:
+                        data.append(map[0])
+                    elif d == 0:
+                        data.append(map[-1])
+                    else:
+                        data.append(map[int((len(map)-(d/4000*len(map)))-1)])
+            print ('Creating Pixmap')
+            im = Image.new('RGBA',(len(t),len(f)))
+            im.putdata(data)
+            im.save(graphics_dir+'/spectrogram.png')
+
+
+    def getNotes(self,level):
+        if '_customEvents' in self.levelsJson[level]:
+            self.BPMs =[]
+            for event in self.levelsJson[level]['_customEvents']:
+                self.variableBPM = True
+                if event['_type'] == 0:
+                    self.BPMs.append((event['_time'],event['_value']))
+        else:
+            self.BPMs = [(0,self.levelsJson[level]['_beatsPerMinute'])]
+        print(self.BPMs)
+
+    def updatePos(self):
+        self.pos =MX.music.get_pos()+self.startTime*1000
+
+    def pauseSong(self):
+        self.isPlaying= False
+        MX.music.pause()
+        #self.updatePos()
+
+
+    def playSong(self,startTime):
+        self.isPlaying = True
+        self.startTime = startTime
+
+        MX.music.play(start=startTime)
+        self.time = time.time()
+        #self.updatePos()
+
+
+
 
     def loadInfoJson(self, infoFile):
         self.infoJson ={}

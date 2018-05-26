@@ -38,8 +38,8 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
 from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor, QPainter
 from PyQt5.QtCore import QSize,Qt, QRect, QPointF, QTimer, pyqtSignal, pyqtSlot
 
-graphics_dir = "graphics/"
-
+graphics_dir = 'graphics/'
+data_dir ='data/'
 class FileTextDialog(QWidget):
     def __init__(self):
         super().__init__()
@@ -323,12 +323,12 @@ class LevelInfoPanel(QWidget):
 
 
 class EditorPanel(QWidget):
-    def __init__(self):
+    def __init__(self,song):
         super().__init__()
 
-        self.initUI()
+        self.initUI(song)
 
-    def initUI(self):
+    def initUI(self,song):
 
         self.topLayout = QHBoxLayout()
         self.topLayout.setContentsMargins(0,0,0,0)
@@ -336,7 +336,8 @@ class EditorPanel(QWidget):
         self.mainPanel = QSplitter()
         self.levelInfo = LevelInfoPanel()
 #        self.levelInfo.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Fixed)
-        self.editor = Editor()
+
+        self.editor = Editor(song)
         self.noteInfo = NoteInfoPanel()
 
 
@@ -348,7 +349,8 @@ class EditorPanel(QWidget):
         self.mainPanel.setStretchFactor(1,100)
         self.mainPanel.setStretchFactor(2,1)
         self.topLayout.addWidget(self.mainPanel)
-
+        self.update(song)
+        
     def update(self, song):
         self.editor.update(song)
 
@@ -359,7 +361,7 @@ class CyphusMainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.song = Song('')
+        self.song = Song('c:/github/Cyphus/data/info.json')
         self.song.saved = True
         self.initUI()
 
@@ -377,7 +379,7 @@ class CyphusMainWindow(QMainWindow):
         self.mainPanel = QTabWidget()
 
         self.songInfoTab = SongInfoPanel()
-        self.editorTab = EditorPanel()
+        self.editorTab = EditorPanel(self.song)
 
         self.mainPanel.addTab(self.songInfoTab, 'Song &Info')
         self.mainPanel.addTab(self.editorTab, 'Edi&tor')
@@ -448,6 +450,7 @@ class CyphusMainWindow(QMainWindow):
 
         self.setCentralWidget(self.mainPanel)
         self.show()
+
 
     def quitApp(self):
         QApplication.quit()

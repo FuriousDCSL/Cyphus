@@ -19,16 +19,11 @@ import sys
 import json
 import math
 import os.path
-from pygame import mixer as MX
-from pygame import sndarray as SA
 import time
 import numpy
 import numpy.fft as fft
 from scipy import signal
 import math
-from PIL import Image
-import pydub
-import soundfile
 
 from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
    QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel, \
@@ -60,111 +55,55 @@ class LayerValue():
 #         self.viewport().update()
 
 class Editor(QWidget):
-    songLenInBeats =100
-    songBeatsPBar = 4
-    reverse = 1
-    pixPSec =400.0
-    disp8 = True
-    disp12 = False
-    disp16 = False
-    disp24 = False
-    disp32 = False
-    disp48 = False
-    disp64 = False
-    spectrogramDisplay = True
-    spectrogramExist = False
-    songPlaying = False
-    cursorExists = False
 
-    def __init__(self):
+    def __init__(self,song):
         super().__init__()
 
-        self.initUI()
+        self.initUI(song)
 
-    def initUI(self):
+    def initUI(self,song):
+        self.songLenInBeats =100
+        self.songBeatsPBar = 4
+        self.reverse = 1
+        self.pixPSec =400.0
+        self.disp8 = True
+        self.disp12 = False
+        self.disp16 = False
+        self.disp24 = False
+        self.disp32 = False
+        self.disp48 = False
+        self.disp64 = False
+        self.spectrogramDisplay = True
+        self.cursorExists = False
+        self.framecount =0
+        self.timeOutLength=1
+
+        self.timer = QTimer()
         self.editorTheme = self.getTheme()
         self.boxw = self.editorTheme['BoxWidth']
         self.topLayout=QVBoxLayout()
         self.topLayout.setContentsMargins(0,0,0,0)
 
-        self.timer= QTimer()
-        self.songPos =0
+        self.song = song
+        self.song.pos =0
         self.setLayout(self.topLayout)
         self.gs = QGraphicsScene()
         self.gv = QGraphicsView(self.gs)
         self.drawBG()
-
+        self.song = song
 #        self.drawArrowDemo()
-
         self.topLayout.addWidget(self.gv)
 
     def update(self,song):
+        self.gs.clear()
+        print(self.song.pos)
         self.song = song
+        self.cursorExists=False
+        self.song.pos = 0
+        self.play(0)
+        self.pause()
+        self.updatescreen()
 
-        self.data, self.samplerate = soundfile.read(self.song.songPath+'/'+self.song.audioFile['Expert'])
-
-        print (self.samplerate)
-        self.mixer = MX
-        self.mixer.pre_init(self.samplerate, -16, 2, 2048)
-        self.mixer.init()
-        self.songSound = self.mixer.Sound(self.song.songPath+'/'+self.song.audioFile['Expert'])
-        self.songLenInSecs = self.songSound.get_length()
-        self.songLenInBeats = self.secToBeat(self.songLenInSecs)
-        self.songPos =0
-        if '_customEvents' in self.song.levelsJson['Expert']:
-            self.songBPMs =[]
-            for event in self.song.levelsJson['Expert']['_customEvents']:
-                self.variableBPM = True
-                if event['_type'] == 0:
-                    self.songBPMs.append((event['_time'],event['_value']))
-        else:
-            self.songBPMs = [(0,self.song.levelsJson['Expert']['_beatsPerMinute'])]
-        print(self.songBPMs)
-
-        if not self.spectrogramExist:
-            print ('getting samples')
-            samples = SA.array(self.songSound)
-            print('average stereo')
-            fade = []
-            for sample in samples:
-                #print(sample[0],sample[1])
-                fade.append((int(sample[0])+int(sample[1]))/2.0)
-            fade = numpy.asarray(fade)
-            print('fft')
-            f, t, Sxx = signal.spectrogram(fade,48000,nperseg=256,nfft=2048)
-
-            print('coloring')
-            data = []
-            colormax =255
-            map = []
-            j = colorscale =256
-            k=j/2
-            for i in range(colorscale):
-                red = colormax - (i/colorscale*colormax)
-                if i<k:
-                    green = (i/colorscale*colormax)
-                else:
-                    green = (j/colorscale*colormax)
-                blue = (i/colorscale*colormax)
-                j-=1
-                alpha = 100
-                map.append((int(blue),int(red),int(green),alpha))
-            j = 255
-            while j>0:
-                j-=15
-                map.append((0,0,j))
-            for s in Sxx:
-                for d in (s.tolist()):
-                    if d>4000:
-                        data.append(map[0])
-                    elif d == 0:
-                        data.append(map[-1])
-                    else:
-                        data.append(map[int((len(map)-(d/4000*len(map)))-1)])
-            print ('Creating Pixmap')
-            im = Image.new('RGBA',(len(t),len(f)))
-            im.putdata(data)
-            im.save(graphics_dir+'/spectrogram.png')
         if self.spectrogramDisplay:
             self.spectrogramPixMap = QPixmap(graphics_dir+'/spectrogram.png')
             width = self.spectrogramPixMap.width()
@@ -172,135 +111,148 @@ class Editor(QWidget):
 
             self.spectrogramPixMap = self.gs.addPixmap(self.spectrogramPixMap)
             self.spectrogramPixMap.setRotation(90)
-            print(width,self.songLenInSecs,self.pixPSec)
-            self.spectrogramPixMap.setTransform(QTransform().scale(-1,(self.songLenInSecs*self.pixPSec)/width))
+            self.spectrogramPixMap.setTransform(QTransform().scale(-1,(self.song.lengthInSeconds*self.pixPSec)/width))
         self.drawGrid()
         self.drawArrowDemo()
-        #self.playSong(0)
-        self.time = time.time()
+        #self.play(0)
+
+    def play(self, pos):
+        self.timer.timeout.connect(self.updatescreen)
+        self.timer.start(self.timeOutLength)
+        self.song.playSong(pos)
+
+    def pause(self):
+        self.timer.stop()
+        self.song.pauseSong()
 
     def keyPressEvent(self, event):
         key = event.key()
         shiftPressed = event.modifiers() == Qt.ShiftModifier
         ctrlPressed = event.modifiers() == Qt.ControlModifier
-        restart = self.songPlaying
-        print(shiftPressed)
+        altPressed = event.modifiers() == Qt.AltModifier
+        restart = self.song.isPlaying
 
         if key == Qt.Key_Space:
-            if self.songPlaying:
-                self.pauseSong()
+            if self.song.isPlaying:
+                self.pause()
             else:
-                self.playSong(self.songPos/1000)
-                print(self.songPos/1000)
+                self.play(self.song.pos/1000)
         elif key == Qt.Key_BracketRight:
-            restart = self.songPlaying
-            self.pauseSong()
+            restart = self.song.isPlaying
+            self.pause()
             if ctrlPressed:
-                self.songPos+=10000
+                self.song.pos+=10000
             elif shiftPressed:
-                self.songPos+=1000
+                self.song.pos+=1000
+            elif altPressed:
+                self.song.pos+=10
             else:
-                self.songPos+=200
+                self.song.pos+=100
 
-            if not(self.songPos > self.songLenInSecs*1000):
+            if not(self.song.pos > self.song.lengthInSeconds*1000):
                 if restart:
-                    self.playSong(self.songPos/1000)
+                    self.play(self.song.pos/1000)
+                else:
+                    self.play(self.song.pos/1000)
+                    self.pause()
             else:
-                self.songPos = self.songLenInSecs*1000-1
+                self.song.pos = self.song.lengthInSeconds*1000-1
+                self.play(self.song.pos/1000)
+                self.pause()
             self.updatescreen()
         elif key == Qt.Key_BracketLeft:
-            self.pauseSong()
+            self.pause()
             if ctrlPressed:
-                self.songPos-=10000
+                self.song.pos-=10000
             elif shiftPressed:
-                self.songPos-=1000
+                self.song.pos-=1000
+            elif altPressed:
+                self.song.pos-=10
             else:
-                self.songPos-=200
-            if self.songPos <0:
-                self.songPos =0
+                self.song.pos-=100
+            if self.song.pos <0:
+                self.song.pos =0
             if restart:
-                self.playSong(self.songPos/1000)
+                self.play(self.song.pos/1000)
+            else:
+                self.play(self.song.pos/1000)
+                self.pause()
             self.updatescreen()
         elif key == Qt.Key_BraceRight:
-            restart = self.songPlaying
-            self.pauseSong()
+            restart = self.song.isPlaying
+            self.pause()
             if ctrlPressed:
-                self.songPos+=10000
+                self.song.pos+=10000
             elif shiftPressed:
-                self.songPos+=1000
+                self.song.pos+=1000
+            elif altPressed:
+                self.song.pos+=10
             else:
-                self.songPos+=200
+                self.song.pos+=200
 
-            if not(self.songPos > self.songLenInSecs*1000):
+            if not(self.song.pos > self.song.lengthInSeconds*1000):
                 if restart:
-                    self.playSong(self.songPos/1000)
+                    self.play(self.song.pos/1000)
+                else:
+                    self.play(self.song.pos/1000)
+                    self.pause()
             else:
-                self.songPos = self.songLenInSecs*1000-1
+                self.song.pos = self.song.lengthInSeconds*1000-1
+                self.play(self.song.pos/1000)
+                self.pause()
+
             self.updatescreen()
         elif key == Qt.Key_BraceLeft:
-            self.pauseSong()
+            self.pause()
             if ctrlPressed:
-                self.songPos-=10000
+                self.song.pos-=10000
             elif shiftPressed:
-                self.songPos-=1000
+                self.song.pos-=1000
+            elif altPressed:
+                self.song.pos+=10
             else:
-                self.songPos-=200
-            if self.songPos <0:
-                self.songPos =0
+                self.song.pos-=200
+            if self.song.pos <0:
+                self.song.pos =0
             if restart:
-                self.playSong(self.songPos/1000)
+                self.play(self.song.pos/1000)
+            else:
+                self.play(self.song.pos/1000)
+                self.pause()
+
             self.updatescreen()
 
     def QGraphicsSceneWheelEvent(self, event):
         x = event.angleDelta()
-        print(x.y(), 'wheelEvent')
         if x.y() >0:
-            self.songPos+=100
+            self.song.pos+=100
         else:
-            self.songPos -=100
+            self.song.pos -=100
 
 
-    def pauseSong(self):
-        self.songPlaying= False
-        MX.music.pause()
-        self.timer.stop()
-        print(self.songPos/1000)
-
-
-    def playSong(self,startTime):
-        print("PLAYING!")
-        self.songPlaying = True
-        self.startTime = startTime
-
-        self.timer.timeout.connect(self.updatescreen)
-        self.timer.start(1)
-        self.songMusic = self.mixer.music.load(self.song.songPath+'/'+self.song.audioFile['Expert'])
-        MX.music.play(start=startTime)
-        self.framecount =0
-        self.time = time.time()
 
     def updatescreen(self):
-        if self.songPlaying:
-            self.songPos = MX.music.get_pos()+self.startTime*1000
-            self.framecount+=1
-            curTime = time.time()
-            if (curTime-self.time >1):
-    #            print(self.framecount)
-                self.framecount =0
-                self.time=curTime
+        self.song.updatePos()
+
+        # if self.song.isPlaying:
+        #     self.framecount+=1
+        #     curTime = time.time()
+        #     if (curTime-self.song.time >1):
+        #         self.framecount =0
+        #         self.song.time=curTime
 
 
         if self.cursorExists:
             self.gs.removeItem(self.cursorLine)
-        ypos = (self.songPos/1000.0*self.pixPSec)
+        ypos = (self.song.pos/1000.0*self.pixPSec)
         self.gv.centerOn(0,ypos)
         self.cursorLine = self.gs.addLine(0,ypos,1000,ypos,self.editorTheme['GridMeasure'])
         self.cursorExists = True
         self.cursor=True
-        if self.songPos <0:
-            self.songPos =0
+        if self.song.pos <0:
+            self.song.pos =0
             self.gv.centerOn(0,0)
-            self.pauseSong()
+            self.pause()
 
 
     def drawArrowDemo(self):
@@ -325,12 +277,10 @@ class Editor(QWidget):
             box = self.gs.addPixmap(notePixmap)
 
             box.setTransformOriginPoint(20,20)
-            #print(beatBox['_cutDirection'])
             box.setRotation(boxRotation[beatBox['_cutDirection']])
             boxy = (self.vbeatToSec(beatBox['_time'])*self.pixPSec-(self.reverse*20))*self.reverse
 
             boxx = 40*beatBox['_lineIndex']+170*beatBox['_lineLayer']
-            #print(boxx,boxy)
             box.setPos(boxx,boxy)
 
 
@@ -344,10 +294,7 @@ class Editor(QWidget):
         self.offset = 0
         seconds = self.offset
 
-        #if self.variableBPM:
         if True:
-            #JKL
-            #print('variable')
             j=  self.secPerBeat(self.song.beatsPerMinute)*beat
             return j
         else:
@@ -358,20 +305,20 @@ class Editor(QWidget):
         seconds = self.offset
 
         bpmLength =[]
-        numBPMS = len(self.songBPMs)
+        numBPMS = len(self.song.BPMs)
         if numBPMS >1:
-            for i in range(len(self.songBPMs)-1):
-                bpmLength.append(self.songBPMs[i+1][0]-self.songBPMs[i][0])
-            bpmLength.append(self.songLenInBeats-self.songBPMs[i+1][0])
+            for i in range(len(self.song.BPMs)-1):
+                bpmLength.append(self.song.BPMs[i+1][0]-self.song.BPMs[i][0])
+            bpmLength.append(self.song.lengthInBeats-self.song.BPMs[i+1][0])
 
             for i in range (len(bpmLength)-1):
-                if beat >= self.songBPMs[i+1][0]:
-                    seconds += self.secPerBeat(self.songBPMs[i][1])*bpmLength[i]
-                elif beat >= self.songBPMs[i][0] and beat < self.songBPMs[i+1][0]:
-                    seconds += self.secPerBeat(self.songBPMs[i][1])*(beat - self.songBPMs[i][0])
+                if beat >= self.song.BPMs[i+1][0]:
+                    seconds += self.secPerBeat(self.song.BPMs[i][1])*bpmLength[i]
+                elif beat >= self.song.BPMs[i][0] and beat < self.song.BPMs[i+1][0]:
+                    seconds += self.secPerBeat(self.song.BPMs[i][1])*(beat - self.song.BPMs[i][0])
 
-        if beat >= self.songBPMs[-1][0]:
-            seconds += self.secPerBeat(self.songBPMs[-1][1]) * (beat -self.songBPMs[-1][0])
+        if beat >= self.song.BPMs[-1][0]:
+            seconds += self.secPerBeat(self.song.BPMs[-1][1]) * (beat -self.song.BPMs[-1][0])
         return seconds
 
 
@@ -391,7 +338,6 @@ class Editor(QWidget):
         # DONT FORGET TO ADD REVERSE SCROLL
 
 #        self.disp192 = True
-        #print(self.beatToSec(self.songLenInBeats))
         self.noteLayer1 = self.gs.createItemGroup([])
         self.noteLayer2 = self.gs.createItemGroup([])
         self.noteLayer3 = self.gs.createItemGroup([])
@@ -413,9 +359,8 @@ class Editor(QWidget):
 
     def drawGridLaneConstantTime(self, lane, values):
         #debug songlen not a int need to address leftover time
-        for beat in range(int(self.songLenInBeats)):
-            #print(beat,self.reverse*self.beatToSec(beat),self.reverse*self.beatToSec(beat)*self.pixPSec)
-            if beat % self.songBeatsPBar == 0:
+        for beat in range(int(self.song.lengthInBeats)):
+            if beat % self.song.beatsPerBar == 0:
                 lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat)*self.pixPSec,self.editorTheme['GridMeasure']))
             else:
                 lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat)*self.pixPSec,self.editorTheme['Grid4']))
@@ -452,11 +397,11 @@ class Editor(QWidget):
                 lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+7/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+7/12)*self.pixPSec,self.editorTheme['Grid48']))
                 lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.75)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.75)*self.pixPSec,self.editorTheme['Grid48']))
                 lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+11/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+11/12)*self.pixPSec,self.editorTheme['Grid48']))
-        lane.addToGroup(self.gs.addLine(values.x,values.y,values.x,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w*.25,values.y,values.x+values.w*.25,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w*.5,values.y,values.x+values.w*.5,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w*.75,values.y,values.x+values.w*.75,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w,values.y,values.x+values.w,self.reverse*self.beatToSec(self.songLenInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x,values.y,values.x,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.25,values.y,values.x+values.w*.25,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.5,values.y,values.x+values.w*.5,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.75,values.y,values.x+values.w*.75,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w,values.y,values.x+values.w,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
 
 
     def getTheme(self):
