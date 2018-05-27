@@ -147,15 +147,20 @@ class SongInfoPanel(QWidget):
         self.previewStartIn.setValue(song.previewStartTime)
         self.previewDurationIn.setValue(song.previewDuration)
         self.coverImageIn.setText(song.coverImagePath)
-        if song.multiAudio:
-            self.audioFileIn.setText('Multiple Audio Files Present')
-        else:
-            self.audioFileIn.setText(song.audioPath)
-        self.easyLevelIn.setText(song.jsonFile['Easy'])
-        self.normalLevelIn.setText(song.jsonFile['Normal'])
-        self.hardLevelIn.setText(song.jsonFile['Hard'])
-        self.expertLevelIn.setText(song.jsonFile['Expert'])
-        self.expertPlusLevelIn.setText(song.jsonFile['ExpertPlus'])
+        # if song.multiAudio:
+        #     self.audioFileIn.setText('Multiple Audio Files Present')
+        # else:
+        self.audioFileIn.setText(song.audioFile)
+        if 'Easy' in song.jsonFile:
+            self.easyLevelIn.setText(song.jsonFile['Easy'])
+        if 'Normal' in song.jsonFile:
+            self.normalLevelIn.setText(song.jsonFile['Normal'])
+        if 'Hard' in song.jsonFile:
+            self.hardLevelIn.setText(song.jsonFile['Hard'])
+        if 'Expert' in song.jsonFile:
+            self.expertLevelIn.setText(song.jsonFile['Expert'])
+        if 'ExpertPlus' in song.jsonFile:
+            self.expertPlusLevelIn.setText(song.jsonFile['ExpertPlus'])
         if song.environmentName in self.environmentList:
             self.environmentIn.setCurrentIndex(self.environmentList.index(song.environmentName))
         else:
@@ -266,6 +271,7 @@ class NoteInfoPanel(QWidget):
 
 
 class LevelInfoPanel(QWidget):
+    levelSelectedSignal = pyqtSignal(str)
     def __init__(self):
         super().__init__()
 
@@ -282,7 +288,8 @@ class LevelInfoPanel(QWidget):
         self.levelSelectIn.addItem('Normal')
         self.levelSelectIn.addItem('Hard')
         self.levelSelectIn.addItem('Expert')
-        self.levelSelectIn.addItem('Expert Plus')
+        self.levelSelectIn.addItem('ExpertPlus')
+        self.levelSelectIn.currentIndexChanged.connect(self.levelSelected)
         formLayout.addRow(QLabel('Level Select'),self.levelSelectIn)
         formLayout.addRow(QLabel(''))
         self.baseBPMIn = MyDoubleSpinBox()
@@ -308,6 +315,11 @@ class LevelInfoPanel(QWidget):
 
         topLayout.addLayout(formLayout)
         topLayout.addLayout(confirmButtonLayout)
+
+    @pyqtSlot()
+    def levelSelected(self):
+        self.levelSelectedSignal.emit(self.levelSelectIn.currentText())
+
 
 
 
@@ -340,6 +352,7 @@ class EditorPanel(QWidget):
         self.editor = Editor(song)
         self.noteInfo = NoteInfoPanel()
 
+        self.levelInfo.levelSelectedSignal.connect(self.editor.levelSelected)
 
         self.mainPanel.addWidget(self.levelInfo)
         self.mainPanel.addWidget(self.editor)
@@ -350,9 +363,9 @@ class EditorPanel(QWidget):
         self.mainPanel.setStretchFactor(2,1)
         self.topLayout.addWidget(self.mainPanel)
         self.update(song)
-        
+
     def update(self, song):
-        self.editor.update(song)
+        self.editor.update(song,'Expert')
 
 
 

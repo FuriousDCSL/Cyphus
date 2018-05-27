@@ -68,7 +68,7 @@ class Editor(QWidget):
         self.pixPSec =400.0
         self.disp8 = True
         self.disp12 = False
-        self.disp16 = False
+        self.disp16 = True
         self.disp24 = False
         self.disp32 = False
         self.disp48 = False
@@ -76,7 +76,7 @@ class Editor(QWidget):
         self.spectrogramDisplay = True
         self.cursorExists = False
         self.framecount =0
-        self.timeOutLength=1
+        self.timeOutLength=17
 
         self.timer = QTimer()
         self.editorTheme = self.getTheme()
@@ -94,7 +94,7 @@ class Editor(QWidget):
 #        self.drawArrowDemo()
         self.topLayout.addWidget(self.gv)
 
-    def update(self,song):
+    def update(self,song,level):
         self.gs.clear()
         print(self.song.pos)
         self.song = song
@@ -112,9 +112,18 @@ class Editor(QWidget):
             self.spectrogramPixMap = self.gs.addPixmap(self.spectrogramPixMap)
             self.spectrogramPixMap.setRotation(90)
             self.spectrogramPixMap.setTransform(QTransform().scale(-1,(self.song.lengthInSeconds*self.pixPSec)/width))
-        self.drawGrid()
-        self.drawArrowDemo()
+        self.drawGrid(self.song.levels[level])
+        self.drawArrowDemo(self.song.levels[level])
         #self.play(0)
+
+    def levelSelected(self, level):
+        print("Selected ", level)
+        if level in self.song.levels:
+            print('switching')
+            self.update(self.song,level)
+        else:
+            print('creating new level')
+
 
     def play(self, pos):
         self.timer.timeout.connect(self.updatescreen)
@@ -234,12 +243,13 @@ class Editor(QWidget):
     def updatescreen(self):
         self.song.updatePos()
 
-        # if self.song.isPlaying:
-        #     self.framecount+=1
-        #     curTime = time.time()
-        #     if (curTime-self.song.time >1):
-        #         self.framecount =0
-        #         self.song.time=curTime
+        if self.song.isPlaying:
+            self.framecount+=1
+            curTime = time.time()
+            if (curTime-self.song.time >1):
+                print('FPS: ', self.framecount)
+                self.framecount =0
+                self.song.time=curTime
 
 
         if self.cursorExists:
@@ -255,18 +265,18 @@ class Editor(QWidget):
             self.pause()
 
 
-    def drawArrowDemo(self):
+    def drawArrowDemo(self, level):
 
         boxRotation=[180,0,90,270,225,135,315,45,0]
 
-        for beatBox in self.song.levelsJson['Expert']['_notes']:
-            if beatBox['_type']==0:
-                if beatBox['_cutDirection']==8:
+        for beatBox in level.notes:
+            if beatBox.type==0:
+                if beatBox.cutDirection==8:
                     notePixmap = QPixmap(graphics_dir+'redcircle.png')
                 else:
                     notePixmap = QPixmap(graphics_dir+'redarrow.png')
-            elif beatBox['_type']==1:
-                if beatBox['_cutDirection']==8:
+            elif beatBox.type==1:
+                if beatBox.cutDirection==8:
                     notePixmap = QPixmap(graphics_dir+'bluecircle.png')
                 else:
                     notePixmap = QPixmap(graphics_dir+'bluearrow.png')
@@ -277,63 +287,25 @@ class Editor(QWidget):
             box = self.gs.addPixmap(notePixmap)
 
             box.setTransformOriginPoint(20,20)
-            box.setRotation(boxRotation[beatBox['_cutDirection']])
-            boxy = (self.vbeatToSec(beatBox['_time'])*self.pixPSec-(self.reverse*20))*self.reverse
+            box.setRotation(boxRotation[beatBox.cutDirection])
+            boxy = (level.beatToSec(beatBox.time)*self.pixPSec-(self.reverse*20))*self.reverse
 
-            boxx = 40*beatBox['_lineIndex']+170*beatBox['_lineLayer']
+            boxx = 40*beatBox.lineIndex+170*beatBox.lineLayer
             box.setPos(boxx,boxy)
 
 
     def drawBG(self):
         self.gs.setBackgroundBrush(self.editorTheme['BG'])
 
-    def secPerBeat(self, bpm):
-        return 60.0/bpm
 
-    def vbeatToSec(self, beat):
-        self.offset = 0
-        seconds = self.offset
-
-        if True:
-            j=  self.secPerBeat(self.song.beatsPerMinute)*beat
-            return j
-        else:
-            return self.beatToSec(self.bpm)
-
-    def beatToSec(self, beat):
-        self.offset = 0
-        seconds = self.offset
-
-        bpmLength =[]
-        numBPMS = len(self.song.BPMs)
-        if numBPMS >1:
-            for i in range(len(self.song.BPMs)-1):
-                bpmLength.append(self.song.BPMs[i+1][0]-self.song.BPMs[i][0])
-            bpmLength.append(self.song.lengthInBeats-self.song.BPMs[i+1][0])
-
-            for i in range (len(bpmLength)-1):
-                if beat >= self.song.BPMs[i+1][0]:
-                    seconds += self.secPerBeat(self.song.BPMs[i][1])*bpmLength[i]
-                elif beat >= self.song.BPMs[i][0] and beat < self.song.BPMs[i+1][0]:
-                    seconds += self.secPerBeat(self.song.BPMs[i][1])*(beat - self.song.BPMs[i][0])
-
-        if beat >= self.song.BPMs[-1][0]:
-            seconds += self.secPerBeat(self.song.BPMs[-1][1]) * (beat -self.song.BPMs[-1][0])
-        return seconds
-
-
-    def secToBeat(self, sec):
-        #DEBUG temp stub
-        return sec*128/60
-
-    def drawGrid(self):
+    def drawGrid(self,level):
         #DEBUG need to through a clear grid in here
 
-        self.drawGridConstantTime()
+        self.drawGridConstantTime(level)
 
     def drawGridConstantBeat(self):
         pass
-    def drawGridConstantTime(self):
+    def drawGridConstantTime(self,level):
 
         # DONT FORGET TO ADD REVERSE SCROLL
 
@@ -351,57 +323,58 @@ class Editor(QWidget):
         self.obstacleLayerValues = LayerValue((width+spacing)*3,0,width)
         self.eventLayerValues = LayerValue((width+spacing)*4,0,width)
 
-        self.drawGridLaneConstantTime(self.noteLayer1,self.noteLayer1Values)
-        self.drawGridLaneConstantTime(self.noteLayer2,self.noteLayer2Values)
-        self.drawGridLaneConstantTime(self.noteLayer3,self.noteLayer3Values)
-        self.drawGridLaneConstantTime(self.obstacleLayer,self.obstacleLayerValues)
-        self.drawGridLaneConstantTime(self.eventLayer,self.eventLayerValues)
+        self.drawGridLaneConstantTime(self.noteLayer1,self.noteLayer1Values,level)
+        self.drawGridLaneConstantTime(self.noteLayer2,self.noteLayer2Values,level)
+        self.drawGridLaneConstantTime(self.noteLayer3,self.noteLayer3Values,level)
+        self.drawGridLaneConstantTime(self.obstacleLayer,self.obstacleLayerValues,level)
+        self.drawGridLaneConstantTime(self.eventLayer,self.eventLayerValues,level)
 
-    def drawGridLaneConstantTime(self, lane, values):
+
+    def drawGridLaneConstantTime(self, lane, values, level):
         #debug songlen not a int need to address leftover time
         for beat in range(int(self.song.lengthInBeats)):
             if beat % self.song.beatsPerBar == 0:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat)*self.pixPSec,self.editorTheme['GridMeasure']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat))*self.pixPSec,self.editorTheme['GridMeasure']))
             else:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat)*self.pixPSec,self.editorTheme['Grid4']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat))*self.pixPSec,self.editorTheme['Grid4']))
             if self.disp8:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.5)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.5)*self.pixPSec,self.editorTheme['Grid8']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.5))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.5))*self.pixPSec,self.editorTheme['Grid8']))
             if self.disp16:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.25)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.25)*self.pixPSec,self.editorTheme['Grid16']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.75)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.75)*self.pixPSec,self.editorTheme['Grid16']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.25))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.25))*self.pixPSec,self.editorTheme['Grid16']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.75))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.75))*self.pixPSec,self.editorTheme['Grid16']))
             if self.disp32:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.125)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.125)*self.pixPSec,self.editorTheme['Grid32']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.375)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.375)*self.pixPSec,self.editorTheme['Grid32']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.625)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.625)*self.pixPSec,self.editorTheme['Grid32']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.875)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.875)*self.pixPSec,self.editorTheme['Grid32']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.125))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.125))*self.pixPSec,self.editorTheme['Grid32']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.375))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.375))*self.pixPSec,self.editorTheme['Grid32']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.625))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.625))*self.pixPSec,self.editorTheme['Grid32']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.875))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.875))*self.pixPSec,self.editorTheme['Grid32']))
             if self.disp64:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.0625)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.0625)*self.pixPSec,self.editorTheme['Grid64']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.1875)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.1875)*self.pixPSec,self.editorTheme['Grid64']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.3125)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.3125)*self.pixPSec,self.editorTheme['Grid64']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.4375)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.4375)*self.pixPSec,self.editorTheme['Grid64']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.5625)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.5625)*self.pixPSec,self.editorTheme['Grid64']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.6875)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.6875)*self.pixPSec,self.editorTheme['Grid64']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.8125)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.8125)*self.pixPSec,self.editorTheme['Grid64']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.9375)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.9375)*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.0625))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.0625))*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.1875))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.1875))*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.3125))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.3125))*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.4375))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.4375))*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.5625))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.5625))*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.6875))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.6875))*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.8125))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.8125))*self.pixPSec,self.editorTheme['Grid64']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.9375))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.9375))*self.pixPSec,self.editorTheme['Grid64']))
             if self.disp12:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+1/3)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+1/3)*self.pixPSec,self.editorTheme['Grid12']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+2/3)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+2/3)*self.pixPSec,self.editorTheme['Grid12']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+1/3))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+1/3))*self.pixPSec,self.editorTheme['Grid12']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+2/3))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+2/3))*self.pixPSec,self.editorTheme['Grid12']))
             if self.disp24:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+1/6)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+1/6)*self.pixPSec,self.editorTheme['Grid24']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.5)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.5)*self.pixPSec,self.editorTheme['Grid24']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+5/6)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+5/6)*self.pixPSec,self.editorTheme['Grid24']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+1/6))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+1/6))*self.pixPSec,self.editorTheme['Grid24']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.5))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.5))*self.pixPSec,self.editorTheme['Grid24']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+5/6))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+5/6))*self.pixPSec,self.editorTheme['Grid24']))
             if self.disp48:
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+1/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+1/12)*self.pixPSec,self.editorTheme['Grid48']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.25)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.25)*self.pixPSec,self.editorTheme['Grid48']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+5/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+5/12)*self.pixPSec,self.editorTheme['Grid48']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+7/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+7/12)*self.pixPSec,self.editorTheme['Grid48']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+.75)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+.75)*self.pixPSec,self.editorTheme['Grid48']))
-                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*self.beatToSec(beat+11/12)*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*self.beatToSec(beat+11/12)*self.pixPSec,self.editorTheme['Grid48']))
-        lane.addToGroup(self.gs.addLine(values.x,values.y,values.x,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w*.25,values.y,values.x+values.w*.25,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w*.5,values.y,values.x+values.w*.5,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w*.75,values.y,values.x+values.w*.75,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
-        lane.addToGroup(self.gs.addLine(values.x+values.w,values.y,values.x+values.w,self.reverse*self.beatToSec(self.song.lengthInBeats)*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+1/12))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+1/12))*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.25))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.25))*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+5/12))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+5/12))*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+7/12))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+7/12))*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+.75))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+.75))*self.pixPSec,self.editorTheme['Grid48']))
+                lane.addToGroup(self.gs.addLine(values.x+self.editorTheme['GridLineWidth'],self.reverse*(self.song.offset+level.beatToSec(beat+11/12))*self.pixPSec,values.x+values.w-self.editorTheme['GridLineWidth']*2,self.reverse*(self.song.offset+level.beatToSec(beat+11/12))*self.pixPSec,self.editorTheme['Grid48']))
+        lane.addToGroup(self.gs.addLine(values.x,values.y,values.x,self.reverse*(self.song.offset+level.beatToSec(self.song.lengthInBeats))*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.25,values.y,values.x+values.w*.25,self.reverse*(self.song.offset+level.beatToSec(self.song.lengthInBeats))*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.5,values.y,values.x+values.w*.5,self.reverse*(self.song.offset+level.beatToSec(self.song.lengthInBeats))*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w*.75,values.y,values.x+values.w*.75,self.reverse*(self.song.offset+level.beatToSec(self.song.lengthInBeats))*self.pixPSec,self.editorTheme['GridLayer1Vert']))
+        lane.addToGroup(self.gs.addLine(values.x+values.w,values.y,values.x+values.w,self.reverse*(self.song.offset+level.beatToSec(self.song.lengthInBeats))*self.pixPSec,self.editorTheme['GridLayer1Vert']))
 
 
     def getTheme(self):
@@ -418,15 +391,15 @@ class Editor(QWidget):
                     'GridObsBG': QBrush(Qt.black,Qt.SolidPattern),
                     'GridEventVert': QPen(Qt.red,Qt.SolidLine),
                     'GridEventBG': QBrush(Qt.black,Qt.SolidPattern),
-                    'GridMeasure': QPen(QBrush(QColor(255,0,0)),1,Qt.SolidLine),
-                    'Grid4': QPen(QBrush(QColor(255,255,255)),1,Qt.DashLine),
-                    'Grid8': QPen(QBrush(QColor(0,150,255)),1,Qt.DotLine),
-                    'Grid12': QPen(QBrush(QColor(100,255,50)),1,Qt.DotLine),
-                    'Grid16': QPen(QBrush(QColor(255,255,50)),1,Qt.DotLine),
-                    'Grid24': QPen(QBrush(QColor(150,100,255)),1,Qt.DotLine),
-                    'Grid32': QPen(QBrush(QColor(0,255,150)),1,Qt.DotLine),
-                    'Grid48': QPen(QBrush(QColor(255,100,150)),1,Qt.DotLine),
-                    'Grid64': QPen(QBrush(QColor(150,200,100)),1,Qt.DotLine),
+                    'GridMeasure': QPen(QBrush(QColor(255,0,0)),2,Qt.SolidLine),
+                    'Grid4': QPen(QBrush(QColor(255,255,255)),2,Qt.DashLine),
+                    'Grid8': QPen(QBrush(QColor(0,150,255)),2,Qt.DotLine),
+                    'Grid12': QPen(QBrush(QColor(100,255,50)),2,Qt.DotLine),
+                    'Grid16': QPen(QBrush(QColor(255,255,50)),2,Qt.DotLine),
+                    'Grid24': QPen(QBrush(QColor(150,100,255)),2,Qt.DotLine),
+                    'Grid32': QPen(QBrush(QColor(0,255,150)),2,Qt.DotLine),
+                    'Grid48': QPen(QBrush(QColor(255,100,150)),2,Qt.DotLine),
+                    'Grid64': QPen(QBrush(QColor(150,200,100)),2,Qt.DotLine),
 #                    'Grid192': QPen(Qt.red,Qt.SolidLine),
                     'GridLineWidth': 1
                     }
