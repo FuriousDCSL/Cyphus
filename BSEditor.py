@@ -35,7 +35,7 @@ from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor, QPaint
 from PyQt5.QtCore import QSize,Qt, QRect, QRectF, QPointF, QTimer, pyqtSignal, pyqtSlot
 
 graphics_dir = "graphics/"
-
+spectrogram_dir ='spectrograms/'
 class LayerValue():
     def __init__(self, x, y, width):
         self.x = x
@@ -65,7 +65,7 @@ class Editor(QWidget):
         self.songLenInBeats =100
         self.songBeatsPBar = 4
         self.reverse = 1
-        self.pixPSec =400.0
+        self.pixPSec =1000.0
         self.disp8 = True
         self.disp12 = False
         self.disp16 = True
@@ -105,7 +105,7 @@ class Editor(QWidget):
         self.updatescreen()
 
         if self.spectrogramDisplay:
-            self.spectrogramPixMap = QPixmap(graphics_dir+'/spectrogram.png')
+            self.spectrogramPixMap = QPixmap(spectrogram_dir+song.audioFile+'.png')
             width = self.spectrogramPixMap.width()
             height = self.spectrogramPixMap.height()
 
@@ -116,7 +116,8 @@ class Editor(QWidget):
         self.drawArrowDemo(self.song.levels[level])
         #self.play(0)
 
-    def levelSelected(self, level):
+    def levelSelected(self, level
+                      ):
         print("Selected ", level)
         if level in self.song.levels:
             print('switching')
@@ -230,15 +231,6 @@ class Editor(QWidget):
                 self.pause()
 
             self.updatescreen()
-
-    def QGraphicsSceneWheelEvent(self, event):
-        x = event.angleDelta()
-        if x.y() >0:
-            self.song.pos+=100
-        else:
-            self.song.pos -=100
-
-
 
     def updatescreen(self):
         self.song.updatePos()

@@ -19,14 +19,7 @@ import sys
 import json
 import math
 import os.path
-from pygame import mixer as MX
-from pygame import sndarray as SA
-import time
-import numpy
-import numpy.fft as fft
-from scipy import signal
 import math
-from PIL import Image
 from BSEditor import Editor
 from Song import Song
 
@@ -39,7 +32,9 @@ from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor, QPaint
 from PyQt5.QtCore import QSize,Qt, QRect, QPointF, QTimer, pyqtSignal, pyqtSlot
 
 graphics_dir = 'graphics/'
-data_dir ='data/'
+data_dir = 'data/'
+
+
 class FileTextDialog(QWidget):
     def __init__(self):
         super().__init__()
@@ -60,7 +55,6 @@ class FileTextDialog(QWidget):
 
     def getFile(self):
         fileName, filter = QFileDialog.getOpenFileName(self,'Select Level File')
-        #print(fileName)
         self.textIn.setText(fileName)
 
     def setText(self,text):
@@ -142,7 +136,7 @@ class SongInfoPanel(QWidget):
         self.songSubtitleIn.setText(song.songSubName)
         self.songArtistIn.setText(song.authorName)
         self.songCharterIn.setText(song.chartAuthor)
-        self.audioOffsetIn.setValue(song.audioOffset)
+#        #self.audioOffsetIn.setValue(song.audioOffset)
         self.BPMIn.setValue(song.beatsPerMinute)
         self.previewStartIn.setValue(song.previewStartTime)
         self.previewDurationIn.setValue(song.previewDuration)
@@ -165,6 +159,7 @@ class SongInfoPanel(QWidget):
             self.environmentIn.setCurrentIndex(self.environmentList.index(song.environmentName))
         else:
             self.environmentIn.setCurrentIndex(0)
+
 
 class NoteDirSelectPanel(QWidget): # need to change h size policy to not stretch
     def __init__(self):
@@ -362,9 +357,9 @@ class EditorPanel(QWidget):
         self.mainPanel.setStretchFactor(1,100)
         self.mainPanel.setStretchFactor(2,1)
         self.topLayout.addWidget(self.mainPanel)
-        self.update(song)
+        self.updateEditorPanel(song)
 
-    def update(self, song):
+    def updateEditorPanel(self, song):
         self.editor.update(song,'Expert')
 
 
@@ -479,7 +474,7 @@ class CyphusMainWindow(QMainWindow):
             if self.songOpen.valid == True:
                 self.song = self.songOpen
                 self.songInfoTab.update(self.song)
-                self.editorTab.update(self.song)
+                self.editorTab.updateEditorPanel(self.song)
             else:
                 print('INVALID SONG NOT LOADING')
 

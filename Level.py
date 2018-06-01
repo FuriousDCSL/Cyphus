@@ -72,6 +72,7 @@ class Level():
             self.BPMs =[(0,self.baseBPM)]
             self.customJson =[]
 
+
         self.notes =[]
         self.envEvents =[]
         self.obstacles =[]

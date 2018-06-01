@@ -2,13 +2,10 @@ import sys
 import json
 import math
 import os.path
-from pygame import mixer as MX
-from pygame import sndarray as SA
 import time
 import numpy
 import numpy.fft as fft
 from scipy import signal
-import math
 
 from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
     QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QLabel, \
@@ -24,7 +21,7 @@ from pygame import mixer as MX
 from pygame import sndarray as SA
 from Level import Level
 graphics_dir = "graphics/"
-
+spectrogram_dir='spectrograms/'
 
 class Song():
 
@@ -36,16 +33,13 @@ class Song():
         self.BPMs=[]
         self.levels={}
         self.startTime =0
-        self.offset =-0.715
+        self.offset = 0
         self.initSong(infoFile)
 
 
     def initSong(self, infoFile):
         print('Loading Info.json : ',infoFile)
         self.loadInfoJson(infoFile)
-        for level in self.levels:
-            pass
-
 
         self.data, self.samplerate = soundfile.read(self.songPath+'/'+self.audioFile)
         self.beatsPerBar =4
@@ -58,11 +52,11 @@ class Song():
         self.mixer.init(self.samplerate)
         self.sound = self.mixer.Sound(self.songPath+'/'+self.audioFile)
         self.lengthInSeconds = self.sound.get_length()
-        self.lengthInBeats= 1000#self.secToBeat(self.lengthInSeconds)
+        self.lengthInBeats= 1000 #DEBUG self.secToBeat(self.lengthInSeconds)
         self.pos =0
         self.music = self.mixer.music.load(self.songPath+'/'+self.audioFile)
 
-
+        self.spectrogramExist = self.isSpectrogramMade()
         if not self.spectrogramExist:
             print ('getting samples')
             samples = SA.array(self.sound)
@@ -105,9 +99,10 @@ class Song():
             print ('Creating Pixmap')
             im = Image.new('RGBA',(len(t),len(f)))
             im.putdata(data)
-            im.save(graphics_dir+'/spectrogram.png')
+            im.save(spectrogram_dir+self.audioFile+'.png')
 
-
+    def isSpectrogramMade(self):
+        return os.path.isfile( spectrogram_dir + '/' + self.audioFile+'.png')
 
     def updatePos(self):
         self.pos =MX.music.get_pos()+self.startTime*1000
@@ -204,23 +199,20 @@ class Song():
         else:
             print('Warning: Song environmentName missing')
             self.environmentName = 'DefaultEnvironment'
-        if 'offset' in self.infoJson:
-            self.audioOffset = self.infoJson['offset']
-        else:
-            print('Warning: Song Offset missing')
-            self.audioOffset = 0.0
 
-        self.loadedKeys = ['songName', 'songSubName', 'authorName','chartAuthor','beatsPerMinute','previewStartTime','previewDuration','coverImagePath','environmentName','offset','difficultyLevels']
+        self.loadedKeys = ['songName', 'songSubName', 'authorName','chartAuthor','beatsPerMinute','previewStartTime','previewDuration','coverImagePath','environmentName','difficultyLevels']
 
         self.extraKeys=[]
         for key in self.infoJson:
             if key not in self.loadedKeys:
                 self.extraKeys.append((key,self.infoJson[key]))
-        print ("extra keys",self.extraKeys)
+        print ("extra info keys",self.extraKeys)
         self.jsonFile={}
         self.levelRank={}
         self.levelExists={}
         self.levelsJson={}
+
+        self.extraDifficultyKeys ={}
         if 'difficultyLevels' in self.infoJson:
             for difficulty in self.infoJson['difficultyLevels']:
                 self.levels[difficulty['difficulty']]=Level(self.songPath, difficulty)
@@ -235,53 +227,3 @@ class Song():
             self.audioFile = audioPaths[0]
 
         self.valid = True
-
-    # def loadLevelJson(self,path):
-    #     self.level = Level()
-    #     try:
-    #         with open (path,'r') as level:
-    #             self.levelJson = json.load(level)
-    #     except (FileNotFoundError):
-    #         print('level json not found')
-    #         fileError = QDialog()
-    #         fileErrorLayout = QVBoxLayout()
-    #         fileError.setLayout(fileErrorLayout)
-    #         fileErrorOKBtn = QPushButton('OK')
-    #         fileErrorOKBtn.clicked.connect(fileError.close)
-    #         fileErrorLayout.addWidget(QLabel('level json not found.'))
-    #         fileErrorLayout.addWidget(fileErrorOKBtn)
-    #         fileError.exec_()
-    #         return
-    #     except (json.decoder.JSONDecodeError):
-    #         print('level json invalid')
-    #         fileError = QDialog()
-    #         fileErrorLayout = QVBoxLayout()
-    #         fileError.setLayout(fileErrorLayout)
-    #         fileErrorOKBtn = QPushButton('OK')
-    #         fileErrorOKBtn.clicked.connect(fileError.close)
-    #         fileErrorLayout.addWidget(QLabel('level json Invalid'))
-    #         fileErrorLayout.addWidget(fileErrorOKBtn)
-    #         fileError.exec_()
-    #         return
-    #
-    #     return self.levelJson
-
-    # def saveInfoJson(self, path):
-    #     infoJson = {    'songName':self.songName,
-    #                     'songSubName':self.songSubName,
-    #                     'authorName':self.authorName,
-    #                     'beatsPerMinute':self.beatsPerMinute,
-    #                     'previewStartTime':self.previewStartTime,
-    #                     'previewDuration':self.previewDuration,
-    #                     'coverImagePath':self.coverImagePath,
-    #                     'environmentName':self.environmentName,
-    #                     'difficultyLevels':[]
-    #                 }
-    #     for level in self.levelExists:
-    #         if self.levelExists[level]:
-    #             infoJson['difficultyLevels'].append({   'difficulty':level,
-    #                                                     'difficultyRank':self.levelRank[level],
-    #                                                     'audioPath':self.audioFile[level],
-    #                                                     'jsonPath': self.jsonFile[level]
-    #                                                 })
-    #     print (json.dumps(infoJson))
