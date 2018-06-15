@@ -14,7 +14,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-
 import sys
 import json
 import math
@@ -30,7 +29,7 @@ from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QStyleFactory,\
    QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSplitter, QGraphicsView, \
    QButtonGroup, QGridLayout, QAction, QSizePolicy, QFileDialog, QDialog, \
    QGraphicsScene, QGraphicsView, QErrorMessage, QGraphicsScale, QGraphicsItem, \
-   QStackedLayout
+   QStackedLayout, QGraphicsPixmapItem
 from PyQt5.QtGui import QIcon, QPixmap, QPen, QBrush, QTransform, QColor, QPainter
 from PyQt5.QtCore import QSize,Qt, QRect, QRectF, QPointF, QTimer, pyqtSignal, pyqtSlot
 
@@ -53,6 +52,26 @@ class LayerValue():
 #         foreground.drawLine(0,300,800,300)
 #         QGraphicsView.drawForeground(self,x,y)
 #         self.viewport().update()
+
+
+class NoteBox(QGraphicsPixmapItem):
+    def __init__(self):
+        super().__init__()
+        self.setAcceptHoverEvents(True)
+        self.setFlag(QGraphicsItem.ItemIsSelectable)
+        self.setFlag(QGraphicsItem.ItemIsMovable)
+
+    def setBox(self, box):
+        self.Box = box
+
+    def mouseMoveEvent(self, event):
+        print(self.pos())
+        QGraphicsItem.mouseMoveEvent(self, event)
+
+    def mouseReleaseEvent(self, event):
+        print(self.pos())
+        print(self.Box.time)
+
 
 class Editor(QWidget):
 
@@ -92,6 +111,7 @@ class Editor(QWidget):
         self.drawBG()
         self.song = song
 #        self.drawArrowDemo()
+        self.boxes = []
         self.topLayout.addWidget(self.gv)
 
     def update(self,song,level):
@@ -256,7 +276,6 @@ class Editor(QWidget):
             self.gv.centerOn(0,0)
             self.pause()
 
-
     def drawArrowDemo(self, level):
 
         boxRotation=[180,0,90,270,225,135,315,45,0]
@@ -276,15 +295,18 @@ class Editor(QWidget):
                 notePixmap =QPixmap(graphics_dir+'mine.png')
 
             notePixmap = notePixmap.scaled(40,40)
-            box = self.gs.addPixmap(notePixmap)
-
-            box.setTransformOriginPoint(20,20)
-            box.setRotation(boxRotation[beatBox.cutDirection])
+            noteBox = NoteBox()
+            noteBox.setPixmap(notePixmap)
+            noteBox.setBox(beatBox)
+            box = self.gs.addItem(noteBox)
+            print(type(noteBox))
+            noteBox.setTransformOriginPoint(20,20)
+            noteBox.setRotation(boxRotation[beatBox.cutDirection])
             boxy = (level.beatToSec(beatBox.time)*self.pixPSec-(self.reverse*20))*self.reverse
 
             boxx = 40*beatBox.lineIndex+170*beatBox.lineLayer
-            box.setPos(boxx,boxy)
-
+            noteBox.setPos(boxx, boxy)
+            self.boxes.append(noteBox)
 
     def drawBG(self):
         self.gs.setBackgroundBrush(self.editorTheme['BG'])
@@ -297,6 +319,7 @@ class Editor(QWidget):
 
     def drawGridConstantBeat(self):
         pass
+
     def drawGridConstantTime(self,level):
 
         # DONT FORGET TO ADD REVERSE SCROLL
